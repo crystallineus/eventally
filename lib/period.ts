@@ -25,3 +25,14 @@ export function periodOf(isoDate: string): string {
   parse(period);
   return period;
 }
+
+/** "2026-06-01" -> "Jun 1, 2026" */
+export function formatDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("en-US", { dateStyle: "medium", timeZone: "UTC" });
+}
+
+/** "Jun 1, 2026 – May 31, 2027", or "Jun 1, 2026 – month-to-month" without an end date. */
+export function formatLeaseTerm(startDate: string, endDate: string | null): string {
+  return `${formatDate(startDate)} – ${endDate ? formatDate(endDate) : "month-to-month"}`;
+}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getLedger, getLeasesForUser, roleIn, type LeaseWithParties } from "@/lib/ledger";
 import { formatUsd } from "@/lib/money";
+import { formatLeaseTerm } from "@/lib/period";
 import { requireUser } from "@/lib/session";
 
 export default async function LedgerPage({ searchParams }: PageProps<"/ledger">) {
@@ -94,11 +95,12 @@ function LeaseSummary({ lease, role, balanceCents }: { lease: LeaseWithParties; 
         <p className="text-sm text-stone-500">You are the {role}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{lease.propertyName}</h1>
         <p className="text-stone-600">{lease.address}</p>
-        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
           <Field label="Landlord" value={landlord} />
           <Field label="Tenant" value={lease.tenant?.name ?? "Invite pending"} />
           <Field label="Rent" value={`${formatUsd(lease.rentCents)} / month`} />
           <Field label="Due" value={`Day ${lease.dueDay} of each month`} />
+          <Field label="Lease term" value={formatLeaseTerm(lease.startDate, lease.endDate)} />
         </dl>
       </div>
       <div className="rounded-lg bg-stone-50 p-4 sm:min-w-48 sm:text-right">

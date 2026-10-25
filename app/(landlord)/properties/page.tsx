@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getLeasesForUser } from "@/lib/ledger";
 import { formatUsd } from "@/lib/money";
+import { formatLeaseTerm } from "@/lib/period";
 import { requireUser } from "@/lib/session";
 
 export default async function PropertiesPage() {
@@ -23,6 +24,7 @@ export default async function PropertiesPage() {
             <p className="mt-3 text-sm">
               {l.tenant?.name ?? "Invite pending"} · {formatUsd(l.rentCents)} / month · due day {l.dueDay}
             </p>
+            <p className="text-sm text-stone-600">Lease term: {formatLeaseTerm(l.startDate, l.endDate)}</p>
             <details className="mt-3 text-sm">
               <summary className="cursor-pointer text-stone-600">Repair clause</summary>
               <p className="mt-2 whitespace-pre-line text-stone-700">{l.repairClause}</p>

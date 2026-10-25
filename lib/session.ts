@@ -18,6 +18,16 @@ export async function getCurrentUser(): Promise<User | null> {
   return user ?? null;
 }
 
+/** Everyone the header switcher can impersonate, labelled by whether they own any lease. */
+export async function getDemoUsers(): Promise<(User & { role: "landlord" | "tenant" })[]> {
+  const [users, leases] = await Promise.all([
+    db().select().from(schema.users).orderBy(schema.users.createdAt),
+    db().select({ landlordId: schema.leases.landlordId }).from(schema.leases),
+  ]);
+  const landlordIds = new Set(leases.map((l) => l.landlordId));
+  return users.map((u) => ({ ...u, role: landlordIds.has(u.id) ? "landlord" : "tenant" }));
+}
+
 export async function requireUser(): Promise<User> {
   const user = await getCurrentUser();
   if (!user) redirect("/");

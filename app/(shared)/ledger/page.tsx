@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ClaimStatus } from "@/app/components/claim-status";
+import { listClaims } from "@/lib/claims";
 import { getLedger, getLeasesForUser, roleIn, type LeaseWithParties } from "@/lib/ledger";
 import { formatUsd } from "@/lib/money";
 import { formatLeaseTerm } from "@/lib/period";
@@ -14,7 +16,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
     return <p className="text-stone-600">No leases yet. A landlord can add one from Properties.</p>;
   }
 
-  const ledger = await getLedger(lease);
+  const [ledger, claims] = await Promise.all([getLedger(lease), listClaims(lease.id)]);
   const role = roleIn(lease, user.id);
 
   return (
@@ -35,6 +37,42 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
       )}
 
       <LeaseSummary lease={lease} role={role} balanceCents={ledger.balanceCents} />
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-semibold">Repair claims</h2>
+          <Link
+            href={`/claims/new?lease=${lease.id}`}
+            className="rounded-lg bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700"
+          >
+            New claim
+          </Link>
+        </div>
+        {claims.length === 0 ? (
+          <p className="rounded-xl border border-stone-200 bg-white p-5 text-sm text-stone-600">
+            No claims yet. Paid for a repair? Submit the receipt and photos here.
+          </p>
+        ) : (
+          <ul className="divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white">
+            {claims.map((c) => (
+              <li key={c.id}>
+                <Link href={`/claims/${c.id}`} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 hover:bg-stone-50">
+                  <span>
+                    <span className="font-medium">{c.title}</span>
+                    <span className="ml-2 text-sm text-stone-500">
+                      {c.submittedBy === lease.landlordId ? "paid by landlord" : "paid by tenant"}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <ClaimStatus status={c.status} />
+                    <span className="tabular-nums">{formatUsd(c.amountCents ?? 0)}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="rounded-xl border border-dashed border-stone-300 bg-white p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">

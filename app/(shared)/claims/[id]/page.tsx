@@ -4,9 +4,10 @@ import { ClaimStatus } from "@/app/components/claim-status";
 import { getClaimDetail, getClaimForUser, isOpen } from "@/lib/claims";
 import { formatUsd } from "@/lib/money";
 import { requireUser } from "@/lib/session";
-import { approve, withdraw } from "../actions";
+import { approve } from "../actions";
 import { AddEvidenceForm } from "./add-evidence-form";
 import { SplitForm } from "./split-form";
+import { WithdrawButton } from "./withdraw-button";
 
 const KIND_LABELS = { receipt: "Receipt", before: "Before", after: "After" } as const;
 
@@ -120,12 +121,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
         </ol>
       </section>
 
-      {open && claim.submittedBy === user.id && (
-        <form action={withdraw}>
-          <input type="hidden" name="claimId" value={claim.id} />
-          <button className="text-sm text-stone-500 underline hover:text-red-700">Withdraw this claim</button>
-        </form>
-      )}
+      {open && claim.submittedBy === user.id && <WithdrawButton claimId={claim.id} />}
     </div>
   );
 }

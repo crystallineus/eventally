@@ -22,7 +22,7 @@ async function main() {
     const [tom, maya] = await tx
       .insert(schema.users)
       .values([
-        { name: "Tom Becker", email: "tom@eventally.demo", paypalEmail: merchantEmail },
+        { name: "Tom Becker", email: "tom@eventally.demo", businessName: "SJ Rentals", paypalEmail: merchantEmail },
         { name: "Maya Chen", email: "maya@eventally.demo", paypalEmail: buyerEmail },
       ])
       .returning();
@@ -31,7 +31,7 @@ async function main() {
       .insert(schema.leases)
       .values({
         propertyName: "Maple Street Apartment",
-        address: "418 Maple Street, Apt 2B, Portland, OR 97214",
+        address: "418 Maple Street, Apt 2B, San Jose, CA 95112",
         landlordId: tom.id,
         tenantId: maya.id,
         rentCents: 200000,

@@ -26,6 +26,8 @@ export const users = pgTable("users", {
   id: id(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  /** Landlord's business name as shown on PayPal invoices, e.g. "SJ Rentals". */
+  businessName: text("business_name"),
   /** Where invoices are sent (tenant) or the PayPal merchant account (landlord). */
   paypalEmail: text("paypal_email"),
   createdAt: createdAt(),

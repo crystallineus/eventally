@@ -4,10 +4,11 @@ import { ClaimStatus } from "@/app/components/claim-status";
 import { condenseReviews, describeEvent, groupSteps, proposalHistory, type Proposal } from "@/app/components/event-label";
 import { WhyTip } from "@/app/components/why-tip";
 import { getClaimDetail, getClaimForUser, isOpen } from "@/lib/claims";
-import { formatUsd } from "@/lib/money";
+import { formatUsd, parseUsd } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import { approve } from "../actions";
 import { AddEvidenceForm } from "./add-evidence-form";
+import { EditAmount } from "./edit-amount";
 import { EvidenceGallery } from "./evidence-gallery";
 import { ReviewRunner } from "./review-runner";
 import { SplitForm } from "./split-form";
@@ -32,6 +33,10 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
   const lastStart = events.findIndex((e) => e.type === "agent.review_started");
   const review = lastStart === -1 ? [] : events.slice(0, lastStart).filter((e) => e.actor === "agent").reverse();
   const evidenceRequest = claim.status === "needs_evidence" ? review.findLast((e) => e.type === "agent.request_more_evidence") : undefined;
+  // The receipt total the AI last read, offered to the submitter as a one-click correction.
+  const lastReceipt = events.find((e) => e.type === "agent.record_receipt");
+  const receiptTotal = (lastReceipt?.data as { input?: { total?: string } } | undefined)?.input?.total;
+  const receiptTotalCents = receiptTotal ? parseUsd(receiptTotal) : null;
   const latestProposal = events.find((e) => e.type === "split.proposed" || e.type === "agent.propose_split");
 
   return (
@@ -53,6 +58,9 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
             <ClaimStatus status={claim.status} />
             <p className="mt-1 text-2xl font-semibold tabular-nums">{formatUsd(claim.amountCents ?? 0)}</p>
             <p className="text-xs text-stone-500">paid by {submitter}</p>
+            {open && claim.submittedBy === user.id && !claim.reviewStartedAt && (
+              <EditAmount claimId={claim.id} amountCents={claim.amountCents ?? 0} receiptTotalCents={receiptTotalCents} />
+            )}
           </div>
         </div>
         <p className="mt-4 whitespace-pre-line text-stone-800">{claim.description}</p>
@@ -124,7 +132,8 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           <p className="mt-4 text-sm text-stone-600">You approved. Waiting for the {role === "landlord" ? "tenant" : "landlord"}.</p>
         )}
         {open && <SplitForm claimId={claim.id} hasProposal={claim.landlordShareCents != null} />}
-        <EarlierProposals proposals={proposalHistory(events).slice(0, -1)} />
+        {/* Without a current split (e.g. after the amount changed), every past proposal is history. */}
+        <EarlierProposals proposals={claim.landlordShareCents == null ? proposalHistory(events) : proposalHistory(events).slice(0, -1)} />
       </section>
 
       <section>
@@ -240,7 +249,7 @@ function EarlierProposals({ proposals }: { proposals: Proposal[] }) {
               <span className="font-medium text-stone-900">
                 Landlord {formatUsd(p.landlordShareCents)} · Tenant {formatUsd(p.tenantShareCents)}
               </span>
-              <span className="text-xs text-stone-500">Replaced by a newer proposal</span>
+              <span className="text-xs text-stone-500">No longer current</span>
             </div>
             <p className="text-xs text-stone-500">
               Proposed by {p.by} · {when(p.at)}

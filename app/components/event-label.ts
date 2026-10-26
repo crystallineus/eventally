@@ -17,6 +17,8 @@ export function describeEvent(type: string, data: unknown): string {
       return `${by} approved the split.`;
     case "claim.approved":
       return String(d.summary ?? "Both sides approved.");
+    case "claim.amount_changed":
+      return `${by} changed the claimed amount from ${formatUsd(Number(d.fromCents ?? 0))} to ${formatUsd(Number(d.toCents ?? 0))}. The split was cleared for a new review.`;
     case "claim.withdrawn":
       return `${by} withdrew the claim.`;
     case "agent.review_finished":

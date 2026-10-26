@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { addEvidence, approveClaim, createClaim, proposeSplit, withdrawClaim } from "@/lib/claims";
+import { addEvidence, approveClaim, createClaim, proposeSplit, updateClaimAmount, withdrawClaim } from "@/lib/claims";
 import { parseUsd } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import { EVIDENCE_KINDS, type EvidenceKind } from "@/lib/storage";
@@ -103,4 +103,16 @@ export async function withdraw(formData: FormData) {
   const claimId = String(formData.get("claimId"));
   await withdrawClaim(user, claimId);
   revalidatePath(`/claims/${claimId}`);
+}
+
+export async function changeAmount(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const claimId = String(formData.get("claimId"));
+  try {
+    await updateClaimAmount(user, claimId, parseUsd(String(formData.get("amount") ?? "")));
+  } catch (err) {
+    return { error: err instanceof Error && !err.message.startsWith("Not a USD") ? err.message : "Enter a dollar amount like 45.00" };
+  }
+  revalidatePath(`/claims/${claimId}`);
+  return { error: null };
 }

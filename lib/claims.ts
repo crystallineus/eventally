@@ -196,6 +196,48 @@ export async function approveClaim(user: User, claimId: string) {
   });
 }
 
+/**
+ * The submitter corrects the claimed amount. Any proposed split was computed from the old amount,
+ * so it and its approvals are cleared, and the claim goes back for a fresh AI review.
+ */
+export async function updateClaimAmount(user: User, claimId: string, amountCents: Cents) {
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0) throw new Error("The amount must be more than $0");
+  await db().transaction(async (tx) => {
+    const [row] = await tx
+      .select({ claim: schema.claims, lease: schema.leases })
+      .from(schema.claims)
+      .innerJoin(schema.leases, eq(schema.claims.leaseId, schema.leases.id))
+      .where(eq(schema.claims.id, claimId))
+      .for("update", { of: schema.claims });
+    if (!row || row.claim.submittedBy !== user.id) throw new Error("Only the person who submitted a claim can change its amount");
+    if (!isOpen(row.claim)) throw new Error("This claim is closed");
+    if (row.claim.reviewStartedAt) throw new Error("The AI review is running. Try again when it finishes.");
+    if (row.claim.amountCents === amountCents) return;
+
+    await tx
+      .update(schema.claims)
+      .set({
+        amountCents,
+        status: "reviewing",
+        landlordShareCents: null,
+        tenantShareCents: null,
+        splitRationale: null,
+        landlordApprovedAt: null,
+        tenantApprovedAt: null,
+        reviewStartedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.claims.id, claimId));
+    await tx.insert(schema.events).values({
+      leaseId: row.lease.id,
+      claimId,
+      actor: roleOf(row.lease, user.id),
+      type: "claim.amount_changed",
+      data: { by: user.name, fromCents: row.claim.amountCents, toCents: amountCents },
+    });
+  });
+}
+
 export async function withdrawClaim(user: User, claimId: string) {
   const found = await getClaimForUser(claimId, user.id);
   if (!found || found.claim.submittedBy !== user.id) throw new Error("Only the person who submitted a claim can withdraw it");

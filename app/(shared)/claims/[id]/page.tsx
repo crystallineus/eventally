@@ -189,7 +189,7 @@ type Step = { id: string; type: string; data: unknown };
 function AiReview({ reviewing, claimId, steps }: { reviewing: boolean; claimId: string; steps: Step[] }) {
   if (!reviewing && steps.length === 0) return null;
   const shown = steps.filter((s) => STEP_LABELS[s.type]);
-  const notes = steps.filter((s) => !STEP_LABELS[s.type] && s.type !== "agent.review_started");
+  const notes = steps.filter((s) => !STEP_LABELS[s.type] && s.type !== "agent.review_started" && s.type !== "agent.review_finished");
 
   return (
     <section className="rounded-xl border border-sky-200 bg-white p-5">

@@ -19,6 +19,8 @@ export function describeEvent(type: string, data: unknown): string {
       return String(d.summary ?? "Both sides approved.");
     case "claim.withdrawn":
       return `${by} withdrew the claim.`;
+    case "agent.review_finished":
+      return "EvenTally AI finished its review.";
     default:
       if (type.startsWith("agent.")) return d.result?.summary ?? String(d.note ?? type);
       return type;

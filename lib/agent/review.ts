@@ -12,7 +12,10 @@ import { PRICE_CATEGORIES, type PriceCategory } from "@/lib/reference-prices";
 // side for more evidence or proposing a split. It has no tool that moves money — approved splits
 // reach the next rent invoice only after both people approve (lib/claims.ts).
 
-const MODEL = "claude-opus-5-5";
+// Override with REVIEW_MODEL (e.g. claude-sonnet-5-5 or claude-haiku-5-5) to spend less while developing.
+const MODEL = process.env.REVIEW_MODEL || "claude-opus-5-5";
+// Server-side refusal fallback exists for Opus 5.5 and Sonnet 5.5, not Haiku 5.5.
+const FALLBACK = MODEL.startsWith("claude-haiku") ? {} : { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const };
 const MAX_TURNS = 12;
 const LOCK_MINUTES = 5;
 
@@ -126,7 +129,9 @@ export async function runReview(claimId: string): Promise<ReviewOutcome> {
 
   try {
     await log("agent.review_started", { note: "EvenTally AI started reviewing this claim." });
-    const outcome = await reviewLoop(locked, lease, log);
+    const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
+    const outcome = await reviewLoop(locked, lease, log, usage);
+    await log("agent.review_finished", { outcome, model: MODEL, ...usage });
     if (outcome === "incomplete") await log("agent.review_incomplete", { note: "The AI review ended without a decision. Either of you can propose a split." });
     return outcome;
   } catch (err) {
@@ -140,7 +145,9 @@ export async function runReview(claimId: string): Promise<ReviewOutcome> {
 
 type Log = (type: string, data: Record<string, unknown>) => Promise<unknown>;
 
-async function reviewLoop(claim: Claim, lease: Lease, log: Log): Promise<ReviewOutcome> {
+type Usage = { inputTokens: number; outputTokens: number; calls: number };
+
+async function reviewLoop(claim: Claim, lease: Lease, log: Log, usage: Usage): Promise<ReviewOutcome> {
   const ctx = await loadContext(claim, lease);
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: ctx.prompt }];
   let nudged = false;
@@ -149,13 +156,16 @@ async function reviewLoop(claim: Claim, lease: Lease, log: Log): Promise<ReviewO
     const response = await client.beta.messages.create({
       model: MODEL,
       max_tokens: 16000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      ...FALLBACK,
       output_config: { effort: "medium" },
       system: SYSTEM,
       tools,
       messages,
     });
+
+    usage.calls += 1;
+    usage.inputTokens += response.usage.input_tokens + (response.usage.cache_read_input_tokens ?? 0) + (response.usage.cache_creation_input_tokens ?? 0);
+    usage.outputTokens += response.usage.output_tokens;
 
     if (response.stop_reason === "refusal") {
       await log("agent.refused", { note: "The AI declined to review this claim. Either of you can propose a split." });

@@ -82,6 +82,8 @@ export const claims = pgTable(
     landlordShareCents: integer("landlord_share_cents"),
     tenantShareCents: integer("tenant_share_cents"),
     splitRationale: text("split_rationale"),
+    /** Set while an agent review runs, so two reviews of the same claim can't overlap. */
+    reviewStartedAt: timestamp("review_started_at", { withTimezone: true }),
     landlordApprovedAt: timestamp("landlord_approved_at", { withTimezone: true }),
     tenantApprovedAt: timestamp("tenant_approved_at", { withTimezone: true }),
     createdAt: createdAt(),

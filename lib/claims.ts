@@ -99,6 +99,13 @@ export async function addEvidence(user: User, claimId: string, files: { kind: Ev
       type: "evidence.added",
       data: { by: user.name, kinds: stored.map((s) => s.kind) },
     });
+    // The agent asked for more; new evidence sends the claim back for another review.
+    if (found.claim.status === "needs_evidence") {
+      await tx
+        .update(schema.claims)
+        .set({ status: "reviewing", reviewStartedAt: null, updatedAt: new Date() })
+        .where(and(eq(schema.claims.id, claimId), eq(schema.claims.status, "needs_evidence")));
+    }
   });
 }
 

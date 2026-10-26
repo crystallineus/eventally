@@ -8,6 +8,7 @@ import { formatUsd } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import { approve } from "../actions";
 import { AddEvidenceForm } from "./add-evidence-form";
+import { EvidenceGallery } from "./evidence-gallery";
 import { ReviewRunner } from "./review-runner";
 import { SplitForm } from "./split-form";
 import { WithdrawButton } from "./withdraw-button";
@@ -71,28 +72,14 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
 
       <section>
         <h2 className="mb-3 font-semibold">Evidence</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {(["receipt", "before", "after"] as const).map((kind) => {
-            const items = evidence.filter((e) => e.kind === kind);
-            return (
-              <div key={kind} className="rounded-xl border border-stone-200 bg-white p-3">
-                <h3 className="mb-2 text-sm font-medium">{KIND_LABELS[kind]}</h3>
-                {items.length === 0 ? (
-                  <p className="text-sm text-stone-400">None yet</p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    {items.map((e) => (
-                      <a key={e.id} href={`/api/evidence/${e.id}`} target="_blank" className="block overflow-hidden rounded-lg ring-1 ring-stone-200">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- served from our auth-checked route */}
-                        <img src={`/api/evidence/${e.id}`} alt={`${KIND_LABELS[kind]} photo uploaded by ${names.get(e.uploadedBy)}`} className="aspect-square w-full object-cover" />
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <EvidenceGallery
+          photos={evidence.map((e) => ({
+            id: e.id,
+            kind: e.kind,
+            label: `${KIND_LABELS[e.kind]} · uploaded by ${names.get(e.uploadedBy) ?? "unknown"}`,
+            alt: `${KIND_LABELS[e.kind]} photo uploaded by ${names.get(e.uploadedBy) ?? "unknown"}`,
+          }))}
+        />
         {open && <AddEvidenceForm claimId={claim.id} />}
       </section>
 

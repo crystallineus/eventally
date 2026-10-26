@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { condenseReviews, describeEvent, groupSteps, REVIEW_SUMMARY } from "./event-label";
+import { condenseReviews, describeEvent, groupSteps, proposalHistory, REVIEW_SUMMARY } from "./event-label";
 
 let t = 0;
 const ev = (type: string, actor = "agent", data: unknown = {}) => ({ id: `e${++t}`, type, actor, data, createdAt: new Date(2026, 9, 21, 12, 0, t) });
@@ -67,5 +67,20 @@ describe("groupSteps", () => {
     ];
     const [summary] = condenseReviews([...chronological].reverse());
     expect(describeEvent(summary.type, summary.data)).toContain("1 of 1 checks passed");
+  });
+});
+
+describe("proposalHistory", () => {
+  it("lists every proposal with the approvals it got before being replaced", () => {
+    const chronological = [
+      ev("agent.propose_split", "agent", { result: { landlordShareCents: 24000, tenantShareCents: 0, rationale: "12(a)", leaseCitation: "§12" } }),
+      ev("split.approved", "tenant", { by: "Maya Chen" }),
+      ev("split.proposed", "landlord", { by: "Tom Becker", landlordShareCents: 12000, tenantShareCents: 12000, rationale: "Shared" }),
+    ];
+    const history = proposalHistory([...chronological].reverse());
+    expect(history).toHaveLength(2);
+    expect(history[0]).toMatchObject({ by: "EvenTally AI", landlordShareCents: 24000, rationale: "12(a)\n\nLease: §12" });
+    expect(history[0].approvals.map((a) => a.by)).toEqual(["Maya Chen"]);
+    expect(history[1]).toMatchObject({ by: "Tom Becker", landlordShareCents: 12000, approvals: [] });
   });
 });

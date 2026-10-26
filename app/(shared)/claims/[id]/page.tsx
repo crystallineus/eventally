@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClaimStatus } from "@/app/components/claim-status";
-import { condenseReviews, describeEvent, groupSteps } from "@/app/components/event-label";
+import { condenseReviews, describeEvent, groupSteps, proposalHistory, type Proposal } from "@/app/components/event-label";
 import { WhyTip } from "@/app/components/why-tip";
 import { getClaimDetail, getClaimForUser, isOpen } from "@/lib/claims";
 import { formatUsd } from "@/lib/money";
@@ -124,6 +124,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           <p className="mt-4 text-sm text-stone-600">You approved. Waiting for the {role === "landlord" ? "tenant" : "landlord"}.</p>
         )}
         {open && <SplitForm claimId={claim.id} hasProposal={claim.landlordShareCents != null} />}
+        <EarlierProposals proposals={proposalHistory(events).slice(0, -1)} />
       </section>
 
       <section>
@@ -223,5 +224,32 @@ function AiReview({ reviewing, claimId, steps }: { reviewing: boolean; claimId: 
         </p>
       ))}
     </section>
+  );
+}
+
+function EarlierProposals({ proposals }: { proposals: Proposal[] }) {
+  if (proposals.length === 0) return null;
+  const when = (d: Date) => d.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  return (
+    <details className="mt-4 border-t border-stone-100 pt-3 text-sm">
+      <summary className="cursor-pointer text-stone-600">Earlier proposals ({proposals.length})</summary>
+      <ol className="mt-3 space-y-3">
+        {[...proposals].reverse().map((p) => (
+          <li key={p.id} className="rounded-lg bg-stone-50 p-3 text-stone-700">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="font-medium text-stone-900">
+                Landlord {formatUsd(p.landlordShareCents)} · Tenant {formatUsd(p.tenantShareCents)}
+              </span>
+              <span className="text-xs text-stone-500">Replaced by a newer proposal</span>
+            </div>
+            <p className="text-xs text-stone-500">
+              Proposed by {p.by} · {when(p.at)}
+              {p.approvals.map((a) => ` · approved by ${a.by} ${when(a.at)}`).join("")}
+            </p>
+            {p.rationale && <p className="mt-2 whitespace-pre-line">{p.rationale}</p>}
+          </li>
+        ))}
+      </ol>
+    </details>
   );
 }

@@ -123,3 +123,48 @@ function outcomeOf(run: LogEvent[]): string {
   }
   return run.some((e) => e.type === "agent.review_finished") ? "ended without a decision" : "in progress";
 }
+
+export type Proposal = {
+  id: string;
+  by: string; // a person's name, or "EvenTally AI"
+  at: Date;
+  landlordShareCents: number;
+  tenantShareCents: number;
+  rationale: string;
+  approvals: { by: string; at: Date }[];
+};
+
+/** Every split proposed on a claim, oldest first, each with the approvals it received. */
+export function proposalHistory(newestFirst: LogEvent[]): Proposal[] {
+  const proposals: Proposal[] = [];
+  for (const e of [...newestFirst].reverse()) {
+    const d = (e.data ?? {}) as Record<string, unknown> & {
+      result?: { landlordShareCents?: number; tenantShareCents?: number; rationale?: string; leaseCitation?: string };
+    };
+    if (e.type === "split.proposed") {
+      proposals.push({
+        id: e.id,
+        by: String(d.by ?? "Someone"),
+        at: e.createdAt,
+        landlordShareCents: Number(d.landlordShareCents),
+        tenantShareCents: Number(d.tenantShareCents),
+        rationale: String(d.rationale ?? ""),
+        approvals: [],
+      });
+    } else if (e.type === "agent.propose_split" && d.result) {
+      proposals.push({
+        id: e.id,
+        by: "EvenTally AI",
+        at: e.createdAt,
+        landlordShareCents: Number(d.result.landlordShareCents),
+        tenantShareCents: Number(d.result.tenantShareCents),
+        rationale: [d.result.rationale, d.result.leaseCitation && `Lease: ${d.result.leaseCitation}`].filter(Boolean).join("\n\n"),
+        approvals: [],
+      });
+    } else if (e.type === "split.approved" && proposals.length) {
+      // Proposing counts as the proposer's approval, so it isn't listed separately.
+      proposals.at(-1)!.approvals.push({ by: String(d.by ?? "Someone"), at: e.createdAt });
+    }
+  }
+  return proposals;
+}

@@ -172,7 +172,14 @@ export async function approveClaim(user: User, claimId: string) {
       .update(schema.claims)
       .set({ landlordApprovedAt, tenantApprovedAt, status: bothApproved ? "approved" : "awaiting_approval", updatedAt: now })
       .where(eq(schema.claims.id, claimId));
-    await tx.insert(schema.events).values({ leaseId: row.lease.id, claimId, actor: role, type: "split.approved", data: { by: user.name } });
+    // Record which split was approved, so the history still shows it if a new proposal replaces it.
+    await tx.insert(schema.events).values({
+      leaseId: row.lease.id,
+      claimId,
+      actor: role,
+      type: "split.approved",
+      data: { by: user.name, landlordShareCents: row.claim.landlordShareCents, tenantShareCents: row.claim.tenantShareCents },
+    });
     if (bothApproved) {
       await tx.insert(schema.events).values({
         leaseId: row.lease.id,

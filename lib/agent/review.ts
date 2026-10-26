@@ -61,7 +61,10 @@ const inputs = {
     why,
     from: z.enum(["tenant", "landlord"]),
     kinds: z.array(z.enum(["before", "after", "receipt", "itemized_invoice"])).min(1),
-    message: z.string().describe("What you need and why, addressed to that person"),
+    message: z
+      .string()
+      .max(280, "Keep it to one or two short sentences (280 characters max)")
+      .describe("One or two short sentences to that person: what to upload and why. Don't repeat checks that passed; the app already shows them."),
   }),
   propose_split: z.strictObject({
     why,

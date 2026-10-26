@@ -101,7 +101,53 @@ export async function addEvidence(user: User, claimId: string, files: { kind: Ev
     });
     // New evidence doesn't start a review by itself: people finish their changes, then use
     // requestReview ("Ask AI to review again").
+    if (found.claim.status === "awaiting_approval") await clearApprovals(tx, claimId);
   });
+}
+
+/**
+ * The uploader removes one of their photos while the claim is still being agreed. The file is
+ * deleted outright (it may have been uploaded by mistake); the log keeps who removed what kind,
+ * and its hash.
+ */
+export async function removeEvidence(user: User, evidenceId: string) {
+  if (!UUID.test(evidenceId)) throw new Error("Photo not found");
+  const [item] = await db()
+    .select({ id: schema.evidence.id, claimId: schema.evidence.claimId, kind: schema.evidence.kind, uploadedBy: schema.evidence.uploadedBy, sha256: schema.evidence.sha256 })
+    .from(schema.evidence)
+    .where(eq(schema.evidence.id, evidenceId));
+  const found = item && (await getClaimForUser(item.claimId, user.id));
+  if (!item || !found) throw new Error("Photo not found");
+  if (item.uploadedBy !== user.id) throw new Error("Only the person who uploaded a photo can remove it");
+  if (!isOpen(found.claim)) throw new Error("This claim is closed");
+  if (found.claim.reviewStartedAt) throw new Error("The AI review is running. Try again when it finishes.");
+
+  await db().transaction(async (tx) => {
+    if (item.kind === "receipt") {
+      const [{ n }] = await tx
+        .select({ n: count() })
+        .from(schema.evidence)
+        .where(and(eq(schema.evidence.claimId, item.claimId), eq(schema.evidence.kind, "receipt")));
+      if (n <= 1) throw new Error("A claim needs a receipt. Upload the right one first, then remove this one.");
+    }
+    await tx.delete(schema.evidence).where(eq(schema.evidence.id, item.id));
+    await tx.insert(schema.events).values({
+      leaseId: found.lease.id,
+      claimId: item.claimId,
+      actor: found.role,
+      type: "evidence.removed",
+      data: { by: user.name, kind: item.kind, sha256: item.sha256 },
+    });
+    if (found.claim.status === "awaiting_approval") await clearApprovals(tx, item.claimId);
+  });
+}
+
+/** Evidence changed after a split was proposed, so earlier approvals no longer reflect it. */
+async function clearApprovals(tx: Pick<ReturnType<typeof db>, "update">, claimId: string) {
+  await tx
+    .update(schema.claims)
+    .set({ landlordApprovedAt: null, tenantApprovedAt: null, updatedAt: new Date() })
+    .where(eq(schema.claims.id, claimId));
 }
 
 /** Most AI reviews one claim gets. After that, the parties settle the split themselves. */

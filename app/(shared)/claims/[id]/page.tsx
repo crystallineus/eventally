@@ -99,7 +99,9 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
       <section>
         <h2 className="mb-3 font-semibold">Evidence</h2>
         <EvidenceGallery
+          claimId={claim.id}
           photos={evidence.map((e) => ({
+            removable: open && e.uploadedBy === user.id && !claim.reviewStartedAt,
             id: e.id,
             kind: e.kind,
             label: `${KIND_LABELS[e.kind]} · uploaded by ${names.get(e.uploadedBy) ?? "unknown"}`,

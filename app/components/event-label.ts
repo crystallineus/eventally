@@ -9,6 +9,8 @@ export function describeEvent(type: string, data: unknown): string {
       return `Lease created: ${d.landlord} rents to ${d.tenant}.`;
     case "claim.submitted":
       return `${by} submitted a claim for ${formatUsd(Number(d.amountCents ?? 0))}.`;
+    case "evidence.removed":
+      return `${by} removed a ${String(d.kind ?? "")} photo.`;
     case "evidence.added":
       return `${by} added ${Array.isArray(d.kinds) ? d.kinds.join(", ") : "evidence"} photos.`;
     case "split.proposed":

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { removePhoto, type FormState } from "../actions";
 
-export type Photo = { id: string; kind: "receipt" | "before" | "after"; label: string; alt: string };
+export type Photo = { id: string; kind: "receipt" | "before" | "after"; label: string; alt: string; removable: boolean };
 
 const KINDS = [
   { kind: "receipt", title: "Receipt" },
@@ -14,7 +15,8 @@ const KINDS = [
 
 // Evidence thumbnails grouped by kind; clicking one opens a modal viewer that can step
 // through every photo on the claim.
-export function EvidenceGallery({ photos }: { photos: Photo[] }) {
+export function EvidenceGallery({ claimId, photos }: { claimId: string; photos: Photo[] }) {
+  const [removeState, remove, removing] = useActionState<FormState, FormData>(removePhoto, { error: null });
   // Viewer order follows the columns: receipts, then before, then after.
   const ordered = KINDS.flatMap(({ kind }) => photos.filter((p) => p.kind === kind));
   const [index, setIndex] = useState<number | null>(null);
@@ -43,15 +45,35 @@ export function EvidenceGallery({ photos }: { photos: Photo[] }) {
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   {items.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setIndex(ordered.indexOf(p))}
-                      className="block overflow-hidden rounded-lg ring-1 ring-stone-200 hover:ring-2 hover:ring-stone-400 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none"
-                      aria-label={`View ${p.alt}`}
-                    >
-                      <img src={`/api/evidence/${p.id}`} alt={p.alt} className="aspect-square w-full object-cover" />
-                    </button>
+                    <div key={p.id} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIndex(ordered.indexOf(p))}
+                        className="block w-full overflow-hidden rounded-lg ring-1 ring-stone-200 hover:ring-2 hover:ring-stone-400 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none"
+                        aria-label={`View ${p.alt}`}
+                      >
+                        <img src={`/api/evidence/${p.id}`} alt={p.alt} className="aspect-square w-full object-cover" />
+                      </button>
+                      {p.removable && (
+                        <form
+                          action={remove}
+                          onSubmit={(e) => {
+                            if (!confirm("Remove this photo? The file is deleted; the claim history notes that you removed it.")) e.preventDefault();
+                          }}
+                          className="absolute top-1 right-1"
+                        >
+                          <input type="hidden" name="claimId" value={claimId} />
+                          <input type="hidden" name="evidenceId" value={p.id} />
+                          <button
+                            disabled={removing}
+                            aria-label={`Remove ${p.alt}`}
+                            className="grid size-6 place-items-center rounded-full bg-white/90 text-xs text-stone-700 shadow ring-1 ring-stone-300 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                          >
+                            ✕
+                          </button>
+                        </form>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
@@ -59,6 +81,12 @@ export function EvidenceGallery({ photos }: { photos: Photo[] }) {
           );
         })}
       </div>
+
+      {removeState.error && (
+        <p role="alert" className="mt-2 text-sm text-red-700">
+          {removeState.error}
+        </p>
+      )}
 
       <dialog
         ref={dialog}

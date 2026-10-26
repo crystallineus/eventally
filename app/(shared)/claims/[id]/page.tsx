@@ -37,6 +37,12 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
   const evidenceRequest = claim.status === "needs_evidence" ? review.findLast((e) => e.type === "agent.request_more_evidence") : undefined;
   const reviewsDone = events.filter((e) => e.type === "agent.review_started").length;
   const reviewsLeft = Math.max(0, MAX_REVIEWS - reviewsDone);
+  // Changes made after the latest AI review finished: the review didn't see them.
+  const lastReviewEnd = events.find((e) => e.type === "agent.review_finished")?.createdAt;
+  const changesSinceReview =
+    lastReviewEnd && claim.status !== "reviewing"
+      ? events.filter((e) => CHANGE_TYPES.has(e.type) && e.createdAt > lastReviewEnd).reverse()
+      : [];
   // The receipt total the AI last read, offered to the submitter as a one-click correction.
   const lastReceipt = events.find((e) => e.type === "agent.record_receipt");
   const receiptTotal = (lastReceipt?.data as { input?: { total?: string } } | undefined)?.input?.total;
@@ -70,7 +76,31 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
         <p className="mt-4 whitespace-pre-line text-stone-800">{claim.description}</p>
       </section>
 
-      <AiReview reviewing={claim.status === "reviewing"} claimId={claim.id} steps={review} reviewNumber={reviewsDone} />
+      <AiReview reviewing={claim.status === "reviewing"} claimId={claim.id} steps={review} reviewNumber={reviewsDone}>
+        {changesSinceReview.length > 0 && (
+          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">This review is out of date. Since it ran:</p>
+            <ul className="mt-1 list-disc pl-5">
+              {changesSinceReview.map((e) => (
+                <li key={e.id}>{describeEvent(e.type, e.data)}</li>
+              ))}
+            </ul>
+            {reviewsLeft > 0 ? (
+              claim.status === "awaiting_approval" && (
+                <>
+                  <p className="mt-2">Ask the AI to look again; the current proposal moves to the history.</p>
+                  <ReviewAgainButton claimId={claim.id} reviewsLeft={reviewsLeft} />
+                </>
+              )
+            ) : (
+              <p className="mt-2">
+                The AI has reviewed this claim {MAX_REVIEWS} times, which is the limit, so it won&apos;t check these changes. Before
+                approving, look at the new evidence yourself; photos added since the review are marked &ldquo;New&rdquo; below.
+              </p>
+            )}
+          </div>
+        )}
+      </AiReview>
 
       {claim.status === "needs_evidence" && (
         <section className="rounded-xl border border-amber-300 bg-amber-50 p-5">
@@ -103,6 +133,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           claimId={claim.id}
           photos={evidence.map((e) => ({
             removable: open && e.uploadedBy === user.id && !claim.reviewStartedAt,
+            isNew: !!lastReviewEnd && e.createdAt > lastReviewEnd,
             id: e.id,
             kind: e.kind,
             label: `${KIND_LABELS[e.kind]} · uploaded by ${names.get(e.uploadedBy) ?? "unknown"}`,
@@ -207,7 +238,21 @@ const STATUS_STYLE: Record<string, { icon: string; className: string }> = {
 
 type Step = { id: string; type: string; data: unknown };
 
-function AiReview({ reviewing, claimId, steps, reviewNumber }: { reviewing: boolean; claimId: string; steps: Step[]; reviewNumber: number }) {
+const CHANGE_TYPES = new Set(["evidence.added", "evidence.removed", "claim.amount_changed"]);
+
+function AiReview({
+  reviewing,
+  claimId,
+  steps,
+  reviewNumber,
+  children,
+}: {
+  reviewing: boolean;
+  claimId: string;
+  steps: Step[];
+  reviewNumber: number;
+  children?: React.ReactNode;
+}) {
   if (!reviewing && steps.length === 0) return null;
   const shown = steps.filter((s) => STEP_LABELS[s.type]);
   const notes = steps.filter((s) => !STEP_LABELS[s.type] && s.type !== "agent.review_started" && s.type !== "agent.review_finished");
@@ -220,11 +265,13 @@ function AiReview({ reviewing, claimId, steps, reviewNumber }: { reviewing: bool
           {reviewNumber > 0 && (
             <span className="ml-2 text-sm font-normal text-stone-500">
               Review {Math.min(reviewNumber, MAX_REVIEWS)} of {MAX_REVIEWS}
+              {reviewNumber >= MAX_REVIEWS && " · final"}
             </span>
           )}
         </h2>
         <span className="text-xs text-stone-500">EvenTally AI · checks are hints, not verdicts</span>
       </div>
+      {children && <div className="mt-3">{children}</div>}
       {reviewing && (
         <div className="mt-3">
           <ReviewRunner claimId={claimId} />

@@ -161,18 +161,32 @@ export async function reviewCount(claimId: string): Promise<number> {
   return row?.n ?? 0;
 }
 
-/** Either party sends a claim that is waiting for changes back to the AI, up to MAX_REVIEWS. */
+/**
+ * Either party sends a claim back to the AI, up to MAX_REVIEWS: when it's waiting for changes, or
+ * when evidence changed after a proposal. A pending proposal is cleared (it stays in the history)
+ * so the review starts from the current evidence.
+ */
 export async function requestReview(user: User, claimId: string) {
   const found = await getClaimForUser(claimId, user.id);
   if (!found) throw new Error("Claim not found");
-  if (found.claim.status !== "needs_evidence") throw new Error("This claim isn't waiting for changes");
+  const from = found.claim.status;
+  if (from !== "needs_evidence" && from !== "awaiting_approval") throw new Error("This claim can't be reviewed again now");
   if ((await reviewCount(claimId)) >= MAX_REVIEWS) throw new Error(`The AI has already reviewed this claim ${MAX_REVIEWS} times`);
 
   await db().transaction(async (tx) => {
     const [updated] = await tx
       .update(schema.claims)
-      .set({ status: "reviewing", reviewStartedAt: null, updatedAt: new Date() })
-      .where(and(eq(schema.claims.id, claimId), eq(schema.claims.status, "needs_evidence")))
+      .set({
+        status: "reviewing",
+        reviewStartedAt: null,
+        landlordShareCents: null,
+        tenantShareCents: null,
+        splitRationale: null,
+        landlordApprovedAt: null,
+        tenantApprovedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(schema.claims.id, claimId), eq(schema.claims.status, from)))
       .returning({ id: schema.claims.id });
     if (!updated) return;
     await tx.insert(schema.events).values({ leaseId: found.lease.id, claimId, actor: found.role, type: "claim.review_requested", data: { by: user.name } });

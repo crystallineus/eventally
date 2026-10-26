@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { removePhoto, type FormState } from "../actions";
 
-export type Photo = { id: string; kind: "receipt" | "before" | "after"; label: string; alt: string; removable: boolean };
+export type Photo = { id: string; kind: "receipt" | "before" | "after"; label: string; alt: string; removable: boolean; isNew: boolean };
 
 const KINDS = [
   { kind: "receipt", title: "Receipt" },
@@ -54,6 +54,11 @@ export function EvidenceGallery({ claimId, photos }: { claimId: string; photos: 
                       >
                         <img src={`/api/evidence/${p.id}`} alt={p.alt} className="aspect-square w-full object-cover" />
                       </button>
+                      {p.isNew && (
+                        <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950 shadow">
+                          New since AI review
+                        </span>
+                      )}
                       {p.removable && (
                         <form
                           action={remove}

@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 // A small "?" button that reveals the agent's reason for a step in a popover.
-export function WhyTip({ why }: { why: string }) {
+export function WhyTip({ why }: { why: string | string[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   const id = useId();
@@ -29,7 +29,7 @@ export function WhyTip({ why }: { why: string }) {
         aria-expanded={open}
         aria-controls={id}
         aria-label="Why did the AI take this step?"
-        className="grid size-5 place-items-center rounded-full border border-stone-300 text-xs font-semibold text-stone-500 hover:border-stone-500 hover:text-stone-800 aria-expanded:border-sky-500 aria-expanded:bg-sky-50 aria-expanded:text-sky-700"
+        className="grid size-4 place-items-center rounded-full border border-stone-300 text-[10px] leading-none font-semibold text-stone-500 hover:border-stone-500 hover:text-stone-800 aria-expanded:border-sky-500 aria-expanded:bg-sky-50 aria-expanded:text-sky-700"
       >
         ?
       </button>
@@ -37,10 +37,14 @@ export function WhyTip({ why }: { why: string }) {
         <span
           id={id}
           role="tooltip"
-          className="absolute left-7 top-1/2 z-10 w-72 max-w-[calc(100vw-4rem)] -translate-y-1/2 rounded-lg border border-stone-200 bg-white p-3 text-xs leading-relaxed text-stone-700 shadow-lg"
+          className="absolute left-6 top-1/2 z-10 w-72 max-w-[calc(100vw-4rem)] -translate-y-1/2 rounded-lg border border-stone-200 bg-white p-3 text-xs leading-relaxed text-stone-700 shadow-lg"
         >
           <span className="mb-1 block font-semibold text-stone-900">Why this step</span>
-          {why}
+          {(Array.isArray(why) ? why : [why]).map((w) => (
+            <span key={w} className="block [&+&]:mt-1.5">
+              {w}
+            </span>
+          ))}
         </span>
       )}
     </span>

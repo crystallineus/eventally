@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClaimStatus } from "@/app/components/claim-status";
-import { condenseReviews, describeEvent } from "@/app/components/event-label";
+import { condenseReviews, describeEvent, groupSteps } from "@/app/components/event-label";
 import { WhyTip } from "@/app/components/why-tip";
 import { getClaimDetail, getClaimForUser, isOpen } from "@/lib/claims";
 import { formatUsd } from "@/lib/money";
@@ -191,20 +191,24 @@ function AiReview({ reviewing, claimId, steps }: { reviewing: boolean; claimId: 
         </div>
       )}
       <ol className="mt-3 space-y-2">
-        {shown.map((s) => {
-          const d = (s.data ?? {}) as { why?: string; result?: { status?: string; summary?: string } };
-          const style = STATUS_STYLE[d.result?.status ?? "pass"] ?? STATUS_STYLE.pass;
+        {groupSteps(shown).map((row) => {
+          const style = STATUS_STYLE[row.status];
           return (
-            <li key={s.id} className="flex gap-3 text-sm">
-              <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-xs font-bold ${style.className}`} aria-label={d.result?.status}>
+            <li key={row.id} className="flex gap-3 text-sm">
+              <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-xs font-bold ${style.className}`} aria-label={row.status}>
                 {style.icon}
               </span>
               <div>
-                <p className="flex items-center gap-2 font-medium text-stone-900">
-                  {STEP_LABELS[s.type]}
-                  {d.why && <WhyTip why={d.why} />}
+                <p className="flex items-center gap-1.5 font-medium text-stone-900">
+                  {STEP_LABELS[row.type]}
+                  {row.whys.length > 0 && <WhyTip why={row.whys} />}
                 </p>
-                {s.type !== "agent.request_more_evidence" && <p className="text-stone-700">{d.result?.summary}</p>}
+                {row.type !== "agent.request_more_evidence" &&
+                  row.summaries.map((summary) => (
+                    <p key={summary} className="text-stone-700">
+                      {summary}
+                    </p>
+                  ))}
               </div>
             </li>
           );

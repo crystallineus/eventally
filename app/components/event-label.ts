@@ -42,6 +42,29 @@ const CHECKS = new Set([
 
 type LogEvent = { id: string; type: string; actor: string; data: unknown; createdAt: Date };
 
+export type StepStatus = "pass" | "warn" | "fail";
+export type StepRow = { id: string; type: string; status: StepStatus; summaries: string[]; whys: string[] };
+const SEVERITY: Record<StepStatus, number> = { pass: 0, warn: 1, fail: 2 };
+
+/**
+ * One row per step type, in the order each type first appeared. The agent may call a tool more
+ * than once (e.g. a price estimate for labor and another for parts); those merge into one row
+ * that shows every result and takes the worst status.
+ */
+export function groupSteps(steps: Pick<LogEvent, "id" | "type" | "data">[]): StepRow[] {
+  const rows = new Map<string, StepRow>();
+  for (const s of steps) {
+    const d = (s.data ?? {}) as { why?: string; result?: { status?: string; summary?: string } };
+    const status = (["pass", "warn", "fail"].includes(d.result?.status ?? "") ? d.result!.status : "pass") as StepStatus;
+    const row = rows.get(s.type) ?? { id: s.id, type: s.type, status: "pass", summaries: [], whys: [] };
+    if (SEVERITY[status] > SEVERITY[row.status]) row.status = status;
+    if (d.result?.summary && !row.summaries.includes(d.result.summary)) row.summaries.push(d.result.summary);
+    if (d.why && !row.whys.includes(d.why)) row.whys.push(d.why);
+    rows.set(s.type, row);
+  }
+  return [...rows.values()];
+}
+
 /**
  * Collapse each AI review (all agent events from "review_started" on) into one summary line,
  * e.g. "5 of 6 checks passed · asked the tenant for more evidence". Takes and returns events
@@ -53,8 +76,8 @@ export function condenseReviews<E extends LogEvent>(newestFirst: E[]): (E | LogE
 
   const flush = () => {
     if (!run) return;
-    const checks = run.filter((e) => CHECKS.has(e.type));
-    const passed = checks.filter((e) => (e.data as { result?: { status?: string } })?.result?.status === "pass").length;
+    const checks = groupSteps(run.filter((e) => CHECKS.has(e.type)));
+    const passed = checks.filter((c) => c.status === "pass").length;
     const last = run.at(-1)!;
     out.push({
       id: run[0].id,

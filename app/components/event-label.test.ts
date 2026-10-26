@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { condenseReviews, describeEvent, REVIEW_SUMMARY } from "./event-label";
+import { condenseReviews, describeEvent, groupSteps, REVIEW_SUMMARY } from "./event-label";
 
 let t = 0;
 const ev = (type: string, actor = "agent", data: unknown = {}) => ({ id: `e${++t}`, type, actor, data, createdAt: new Date(2026, 9, 21, 12, 0, t) });
@@ -44,5 +44,28 @@ describe("condenseReviews", () => {
   it("marks a review that is still running", () => {
     const condensed = condenseReviews([check("agent.check_math", "pass"), ev("agent.review_started")]);
     expect(describeEvent(condensed[0].type, condensed[0].data)).toContain("in progress");
+  });
+});
+
+describe("groupSteps", () => {
+  it("merges repeated steps into one row with the worst status", () => {
+    const rows = groupSteps([
+      check("agent.check_math", "pass"),
+      ev("agent.estimate_price", "agent", { why: "labor", result: { status: "pass", summary: "Labor range" } }),
+      ev("agent.estimate_price", "agent", { why: "parts", result: { status: "warn", summary: "Parts range" } }),
+    ]);
+    expect(rows.map((r) => r.type)).toEqual(["agent.check_math", "agent.estimate_price"]);
+    expect(rows[1]).toMatchObject({ status: "warn", summaries: ["Labor range", "Parts range"], whys: ["labor", "parts"] });
+  });
+
+  it("counts a repeated step once in the review summary", () => {
+    const chronological = [
+      ev("agent.review_started"),
+      check("agent.estimate_price", "pass"),
+      check("agent.estimate_price", "pass"),
+      ev("agent.review_finished"),
+    ];
+    const [summary] = condenseReviews([...chronological].reverse());
+    expect(describeEvent(summary.type, summary.data)).toContain("1 of 1 checks passed");
   });
 });

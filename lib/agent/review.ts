@@ -69,7 +69,6 @@ const inputs = {
 } as const;
 
 type ToolName = keyof typeof inputs;
-const TERMINAL: ToolName[] = ["request_more_evidence", "propose_split"];
 
 const DESCRIPTIONS: Record<ToolName, string> = {
   record_receipt: "Record what the receipt image says. Call this first; other checks use it.",
@@ -83,7 +82,8 @@ const DESCRIPTIONS: Record<ToolName, string> = {
 };
 
 const tools: Anthropic.Beta.BetaTool[] = (Object.keys(inputs) as ToolName[]).map((name) => {
-  const { $schema: _ignored, ...input_schema } = z.toJSONSchema(inputs[name]) as Record<string, unknown>;
+  const input_schema = z.toJSONSchema(inputs[name]) as Record<string, unknown>;
+  delete input_schema.$schema;
   return { name, description: DESCRIPTIONS[name], input_schema: input_schema as Anthropic.Beta.BetaTool.InputSchema };
 });
 
@@ -224,7 +224,7 @@ async function loadContext(claim: Claim, lease: Lease) {
     claim,
     lease,
     submitterRole,
-    evidence: evidence.map(({ data: _data, ...rest }) => rest),
+    evidence: evidence.map((e) => ({ id: e.id, kind: e.kind, sha256: e.sha256 })),
     prompt: content,
     receipt: null as (Receipt & { evidenceId: string }) | null,
     /** Every amount the agent may mention: receipt fields, claim, reference ranges, shares. */

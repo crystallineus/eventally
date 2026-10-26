@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
+import { todayInAppZone } from "@/lib/time";
 import { db, schema } from "@/lib/db";
 import { planNextInvoice } from "@/lib/ledger";
 import { formatUsd, parseUsd, type Cents } from "@/lib/money";
@@ -115,7 +116,7 @@ export async function sendInvoice(invoiceId: string): Promise<Invoice> {
     const sent = await createAndSendInvoice({
       requestId: invoice.id,
       invoiceNumber: `ET-${invoice.period}-${invoice.id.slice(0, 8).toUpperCase()}`,
-      invoiceDate: new Date().toISOString().slice(0, 10),
+      invoiceDate: todayInAppZone(),
       dueDate: `${invoice.period}-${String(lease.dueDay).padStart(2, "0")}`,
       note: claimCount
         ? `${lease.propertyName} rent with ${claimCount} approved repair adjustment${claimCount > 1 ? "s" : ""}. Details are in your EvenTally ledger.`

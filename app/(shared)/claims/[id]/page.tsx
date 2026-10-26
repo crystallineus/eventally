@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDateTime } from "@/lib/time";
 import { notFound } from "next/navigation";
 import { ClaimStatus } from "@/app/components/claim-status";
 import { SubmitButton } from "@/app/components/submit-button";
@@ -193,7 +194,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           {condenseReviews(events).map((e) => (
             <li key={e.id} className="flex gap-3 rounded-lg bg-white px-4 py-2 ring-1 ring-stone-200">
               <time className="shrink-0 font-mono text-xs leading-5 text-stone-500" dateTime={e.createdAt.toISOString()}>
-                {e.createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+                {formatDateTime(e.createdAt)}
               </time>
               <span className="shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 capitalize text-stone-600">{e.actor}</span>
               <span className="text-stone-800">{describeEvent(e.type, e.data)}</span>
@@ -213,7 +214,7 @@ function Share({ label, cents, approvedAt }: { label: string; cents: number; app
       <dt className="text-stone-500">{label}</dt>
       <dd className="text-lg font-semibold tabular-nums">{formatUsd(cents)}</dd>
       <dd className="text-xs text-stone-500">
-        {approvedAt ? `✓ Approved ${approvedAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}` : "Not approved yet"}
+        {approvedAt ? `✓ Approved ${formatDateTime(approvedAt)}` : "Not approved yet"}
       </dd>
     </div>
   );
@@ -312,7 +313,7 @@ function AiReview({
 
 function EarlierProposals({ proposals }: { proposals: Proposal[] }) {
   if (proposals.length === 0) return null;
-  const when = (d: Date) => d.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  const when = formatDateTime;
   return (
     <details className="mt-4 border-t border-stone-100 pt-3 text-sm">
       <summary className="cursor-pointer text-stone-600">Earlier proposals ({proposals.length})</summary>

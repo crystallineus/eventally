@@ -1,4 +1,5 @@
 import { getLeasesForUser } from "@/lib/ledger";
+import { todayInAppZone } from "@/lib/time";
 import { requireUser } from "@/lib/session";
 import { NewClaimForm } from "./new-claim-form";
 
@@ -21,7 +22,7 @@ export default async function NewClaimPage({ searchParams }: PageProps<"/claims/
       <NewClaimForm
         leases={leases.map((l) => ({ id: l.id, name: l.propertyName }))}
         defaultLeaseId={typeof lease === "string" ? lease : leases[0].id}
-        today={new Date().toISOString().slice(0, 10)}
+        today={todayInAppZone()}
       />
     </div>
   );

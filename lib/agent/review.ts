@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { todayInAppZone } from "@/lib/time";
 import { and, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { checkDates, checkMath, type CheckResult, type Receipt } from "@/lib/agent/checks";
@@ -333,7 +334,7 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
 
   async check_dates(_input, ctx) {
     if (!ctx.receipt) throw new Error("Call record_receipt first");
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayInAppZone();
     return { result: checkDates(ctx.receipt.date, ctx.claim.issueReportedAt.toISOString().slice(0, 10), ctx.lease, today) };
   },
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClaimStatus } from "@/app/components/claim-status";
-import { describeEvent } from "@/app/components/event-label";
+import { condenseReviews, describeEvent } from "@/app/components/event-label";
 import { WhyTip } from "@/app/components/why-tip";
 import { getClaimDetail, getClaimForUser, isOpen } from "@/lib/claims";
 import { formatUsd } from "@/lib/money";
@@ -139,7 +139,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
       <section>
         <h2 className="mb-3 font-semibold">Claim history</h2>
         <ol className="space-y-2 text-sm">
-          {events.map((e) => (
+          {condenseReviews(events).map((e) => (
             <li key={e.id} className="flex gap-3 rounded-lg bg-white px-4 py-2 ring-1 ring-stone-200">
               <time className="shrink-0 font-mono text-xs leading-5 text-stone-500" dateTime={e.createdAt.toISOString()}>
                 {e.createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}

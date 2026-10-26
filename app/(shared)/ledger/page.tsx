@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ClaimStatus } from "@/app/components/claim-status";
+import { condenseReviews, describeEvent } from "@/app/components/event-label";
 import { listClaims } from "@/lib/claims";
 import { getLedger, getLeasesForUser, roleIn, type LeaseWithParties } from "@/lib/ledger";
 import { formatUsd } from "@/lib/money";
@@ -110,13 +111,13 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
           Every step — agent checks and reasoning, approvals, payments — is recorded here and visible to both of you.
         </p>
         <ol className="space-y-2 text-sm">
-          {ledger.events.map((e) => (
+          {condenseReviews(ledger.events).map((e) => (
             <li key={e.id} className="flex gap-3 rounded-lg bg-white px-4 py-2 ring-1 ring-stone-200">
               <time className="shrink-0 font-mono text-xs leading-5 text-stone-500" dateTime={e.createdAt.toISOString()}>
                 {e.createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
               </time>
               <span className="shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 capitalize text-stone-600">{e.actor}</span>
-              <span className="text-stone-800">{e.type}</span>
+              <span className="text-stone-800">{describeEvent(e.type, e.data)}</span>
             </li>
           ))}
         </ol>

@@ -105,7 +105,9 @@ Your job for each claim:
 Ground rules:
 - Checks are hints, not verdicts. You don't decide whether a receipt is genuine, and you don't give legal advice.
 - Every dollar amount you write, including in "why", must come from the receipt, the claim, or a tool result; otherwise the app sends it back. Don't compute new totals yourself; the app computes each side's share from your percentage.
-- Keep each "why" to one sentence.`;
+- Keep each "why" to one sentence.
+- Photos are a hint too. If the receipt checks pass, unclear photos alone are not a reason to hold the claim.
+- You may ask for more evidence at most once per claim. If you already asked and the person uploaded something, don't ask again: propose a split and say plainly in the rationale what the approving person should check for themselves (for example, "the photos don't clearly show the new P-trap, so Tom may want to confirm it before approving").`;
 
 // ---- entry point ---------------------------------------------------------------------------
 
@@ -202,9 +204,14 @@ async function reviewLoop(claim: Claim, lease: Lease, log: Log, usage: Usage): P
 type Context = Awaited<ReturnType<typeof loadContext>>;
 
 async function loadContext(claim: Claim, lease: Lease) {
-  const [evidence, people] = await Promise.all([
+  const [evidence, people, earlierRequests] = await Promise.all([
     db().select().from(schema.evidence).where(eq(schema.evidence.claimId, claim.id)).orderBy(schema.evidence.createdAt),
     db().select({ id: schema.users.id, name: schema.users.name }).from(schema.users).where(inArray(schema.users.id, [lease.landlordId, lease.tenantId ?? lease.landlordId])),
+    db()
+      .select({ data: schema.events.data, createdAt: schema.events.createdAt })
+      .from(schema.events)
+      .where(and(eq(schema.events.claimId, claim.id), eq(schema.events.type, "agent.request_more_evidence")))
+      .orderBy(schema.events.createdAt),
   ]);
   const name = (id: string | null) => people.find((p) => p.id === id)?.name ?? "Unknown";
   const submitterRole: Role = claim.submittedBy === lease.landlordId ? "landlord" : "tenant";
@@ -222,14 +229,17 @@ async function loadContext(claim: Claim, lease: Lease) {
         `Lease term: ${formatLeaseTerm(lease.startDate, lease.endDate)}. Rent: ${formatUsd(lease.rentCents)}/month.`,
         `Repair clause from the lease:\n${lease.repairClause}`,
         "",
-        evidence.length ? "Evidence images follow, each labelled with its ID and kind." : "No evidence images were uploaded.",
+        ...earlierRequests.map(
+          (r) => `Earlier you asked for more evidence: "${(r.data as { result?: { summary?: string } }).result?.summary ?? ""}" Anything uploaded after ${r.createdAt.toISOString()} is the response.`,
+        ),
+        evidence.length ? "Evidence images follow, each labelled with its ID, kind and upload time." : "No evidence images were uploaded.",
       ].join("\n"),
     },
   ];
   for (const e of evidence) {
     const mediaType = e.mimeType as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
     if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mediaType)) continue;
-    content.push({ type: "text", text: `Evidence ${e.id} (${e.kind}, uploaded by ${name(e.uploadedBy)}):` });
+    content.push({ type: "text", text: `Evidence ${e.id} (${e.kind}, uploaded by ${name(e.uploadedBy)} at ${e.createdAt.toISOString()}):` });
     content.push({ type: "image", source: { type: "base64", media_type: mediaType, data: e.data.toString("base64") } });
   }
 
@@ -242,6 +252,7 @@ async function loadContext(claim: Claim, lease: Lease) {
     receipt: null as (Receipt & { evidenceId: string }) | null,
     /** Every amount the agent may mention: receipt fields, claim, reference ranges, shares. */
     knownAmounts: new Set<Cents>([claim.amountCents ?? 0, lease.rentCents]),
+    alreadyAskedForEvidence: earlierRequests.length > 0,
   };
 }
 
@@ -370,6 +381,12 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
   },
 
   async request_more_evidence(input, ctx) {
+    // One request per claim: after that, the person approving the split is the manual check.
+    if (ctx.alreadyAskedForEvidence) {
+      throw new Error(
+        "You already asked for more evidence on this claim. Don't ask again: call propose_split and say in the rationale what the approving person should check themselves.",
+      );
+    }
     const unknown = unknownAmounts(input.message, ctx.knownAmounts);
     if (unknown.length) throw new Error(`These amounts don't match the receipt or ledger: ${unknown.join(", ")}. Restate the message using only known amounts.`);
     await db()

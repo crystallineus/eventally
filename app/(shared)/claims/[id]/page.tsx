@@ -66,7 +66,10 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
             EvenTally AI needs more evidence from the {String((evidenceRequest.data as { result?: { from?: string } }).result?.from ?? "submitter")}
           </h2>
           <p className="mt-2 whitespace-pre-line text-amber-950">{describeEvent(evidenceRequest.type, evidenceRequest.data)}</p>
-          <p className="mt-2 text-sm text-amber-800">Upload it below and the review starts again automatically.</p>
+          <p className="mt-2 text-sm text-amber-800">
+            Upload it below and the review starts again automatically. Can&apos;t provide it? Either of you can propose a split
+            under &ldquo;Who pays&rdquo; and the other side reviews it.
+          </p>
         </section>
       )}
 

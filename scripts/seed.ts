@@ -1,5 +1,5 @@
 // Resets the database to the demo starting point: Tom (landlord), Maya (tenant), one lease,
-// and November rent already paid. WIPES ALL DATA. Usage: npm run db:seed
+// and October rent already paid. WIPES ALL DATA. Usage: npm run db:seed
 // Names, address and amounts are fictional demo data.
 import { sql } from "drizzle-orm";
 import { db, schema } from "../lib/db";
@@ -44,8 +44,8 @@ async function main() {
       .returning();
 
     await tx.insert(schema.ledgerEntries).values([
-      { leaseId: lease.id, period: "2026-11", kind: "rent", amountCents: 200000, description: "Rent – November 2026" },
-      { leaseId: lease.id, period: "2026-11", kind: "payment", amountCents: -200000, description: "PayPal payment – November 2026" },
+      { leaseId: lease.id, period: "2026-10", kind: "rent", amountCents: 200000, description: "Rent – October 2026" },
+      { leaseId: lease.id, period: "2026-10", kind: "payment", amountCents: -200000, description: "PayPal payment – October 2026" },
     ]);
 
     await tx.insert(schema.events).values({
@@ -55,7 +55,7 @@ async function main() {
       data: { landlord: tom.name, tenant: maya.name, rentCents: lease.rentCents },
     });
 
-    console.log(`Seeded lease ${lease.id}: ${tom.name} → ${maya.name}, rent $2,000.00, November paid`);
+    console.log(`Seeded lease ${lease.id}: ${tom.name} → ${maya.name}, rent $2,000.00, October paid`);
   });
 }
 

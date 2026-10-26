@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { and, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { checkDates, checkMath, type CheckResult, type Receipt } from "@/lib/agent/checks";
+import { MAX_REVIEWS, reviewCount } from "@/lib/claims";
 import { db, schema } from "@/lib/db";
 import { unknownAmounts } from "@/lib/guard";
 import { formatUsd, parseUsd, splitByShare, type Cents } from "@/lib/money";
@@ -111,7 +112,7 @@ Ground rules:
 
 // ---- entry point ---------------------------------------------------------------------------
 
-export type ReviewOutcome = "proposed" | "needs_evidence" | "incomplete" | "busy" | "error";
+export type ReviewOutcome = "proposed" | "needs_evidence" | "incomplete" | "busy" | "limit" | "error";
 
 /** Run one review of a claim that is in the "reviewing" state. Safe to call repeatedly. */
 export async function runReview(claimId: string): Promise<ReviewOutcome> {
@@ -128,6 +129,12 @@ export async function runReview(claimId: string): Promise<ReviewOutcome> {
     .returning();
   if (!locked) return "busy";
 
+  const reviewNumber = (await reviewCount(claimId)) + 1;
+  if (reviewNumber > MAX_REVIEWS) {
+    await db().update(schema.claims).set({ status: "needs_evidence", reviewStartedAt: null }).where(eq(schema.claims.id, claimId));
+    return "limit";
+  }
+
   const [lease] = await db().select().from(schema.leases).where(eq(schema.leases.id, locked.leaseId));
   const log = (type: string, data: Record<string, unknown>) =>
     db().insert(schema.events).values({ leaseId: lease.id, claimId, actor: "agent", type, data });
@@ -135,7 +142,7 @@ export async function runReview(claimId: string): Promise<ReviewOutcome> {
   try {
     await log("agent.review_started", { note: "EvenTally AI started reviewing this claim." });
     const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
-    const outcome = await reviewLoop(locked, lease, log, usage);
+    const outcome = await reviewLoop(locked, lease, log, usage, reviewNumber);
     await log("agent.review_finished", { outcome, model: MODEL, ...usage });
     if (outcome === "incomplete") await log("agent.review_incomplete", { note: "The AI review ended without a decision. Either of you can propose a split." });
     return outcome;
@@ -152,8 +159,8 @@ type Log = (type: string, data: Record<string, unknown>) => Promise<unknown>;
 
 type Usage = { inputTokens: number; outputTokens: number; calls: number };
 
-async function reviewLoop(claim: Claim, lease: Lease, log: Log, usage: Usage): Promise<ReviewOutcome> {
-  const ctx = await loadContext(claim, lease);
+async function reviewLoop(claim: Claim, lease: Lease, log: Log, usage: Usage, reviewNumber: number): Promise<ReviewOutcome> {
+  const ctx = await loadContext(claim, lease, reviewNumber);
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: ctx.prompt }];
   let nudged = false;
 
@@ -203,7 +210,7 @@ async function reviewLoop(claim: Claim, lease: Lease, log: Log, usage: Usage): P
 
 type Context = Awaited<ReturnType<typeof loadContext>>;
 
-async function loadContext(claim: Claim, lease: Lease) {
+async function loadContext(claim: Claim, lease: Lease, reviewNumber: number) {
   const [evidence, people, earlierRequests] = await Promise.all([
     db().select().from(schema.evidence).where(eq(schema.evidence.claimId, claim.id)).orderBy(schema.evidence.createdAt),
     db().select({ id: schema.users.id, name: schema.users.name }).from(schema.users).where(inArray(schema.users.id, [lease.landlordId, lease.tenantId ?? lease.landlordId])),
@@ -229,6 +236,7 @@ async function loadContext(claim: Claim, lease: Lease) {
         `Lease term: ${formatLeaseTerm(lease.startDate, lease.endDate)}. Rent: ${formatUsd(lease.rentCents)}/month.`,
         `Repair clause from the lease:\n${lease.repairClause}`,
         "",
+        `This is AI review ${reviewNumber} of at most ${MAX_REVIEWS} for this claim.${reviewNumber === MAX_REVIEWS ? " It is the last one, so finish with propose_split." : ""}`,
         ...earlierRequests.map(
           (r) => `Earlier you asked for more evidence: "${(r.data as { result?: { summary?: string } }).result?.summary ?? ""}" Anything uploaded after ${r.createdAt.toISOString()} is the response.`,
         ),
@@ -253,6 +261,7 @@ async function loadContext(claim: Claim, lease: Lease) {
     /** Every amount the agent may mention: receipt fields, claim, reference ranges, shares. */
     knownAmounts: new Set<Cents>([claim.amountCents ?? 0, lease.rentCents]),
     alreadyAskedForEvidence: earlierRequests.length > 0,
+    lastReview: reviewNumber >= MAX_REVIEWS,
   };
 }
 
@@ -382,6 +391,9 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
 
   async request_more_evidence(input, ctx) {
     // One request per claim: after that, the person approving the split is the manual check.
+    if (ctx.lastReview) {
+      throw new Error("This is the last AI review for this claim. Call propose_split and say in the rationale what the approving person should check themselves.");
+    }
     if (ctx.alreadyAskedForEvidence) {
       throw new Error(
         "You already asked for more evidence on this claim. Don't ask again: call propose_split and say in the rationale what the approving person should check themselves.",

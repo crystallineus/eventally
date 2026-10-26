@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, or } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { formatUsd, splitByShare, type Cents } from "@/lib/money";
 import type { User } from "@/lib/session";
@@ -99,13 +99,37 @@ export async function addEvidence(user: User, claimId: string, files: { kind: Ev
       type: "evidence.added",
       data: { by: user.name, kinds: stored.map((s) => s.kind) },
     });
-    // The agent asked for more; new evidence sends the claim back for another review.
-    if (found.claim.status === "needs_evidence") {
-      await tx
-        .update(schema.claims)
-        .set({ status: "reviewing", reviewStartedAt: null, updatedAt: new Date() })
-        .where(and(eq(schema.claims.id, claimId), eq(schema.claims.status, "needs_evidence")));
-    }
+    // New evidence doesn't start a review by itself: people finish their changes, then use
+    // requestReview ("Ask AI to review again").
+  });
+}
+
+/** Most AI reviews one claim gets. After that, the parties settle the split themselves. */
+export const MAX_REVIEWS = 3;
+
+export async function reviewCount(claimId: string): Promise<number> {
+  const [row] = await db()
+    .select({ n: count() })
+    .from(schema.events)
+    .where(and(eq(schema.events.claimId, claimId), eq(schema.events.type, "agent.review_started")));
+  return row?.n ?? 0;
+}
+
+/** Either party sends a claim that is waiting for changes back to the AI, up to MAX_REVIEWS. */
+export async function requestReview(user: User, claimId: string) {
+  const found = await getClaimForUser(claimId, user.id);
+  if (!found) throw new Error("Claim not found");
+  if (found.claim.status !== "needs_evidence") throw new Error("This claim isn't waiting for changes");
+  if ((await reviewCount(claimId)) >= MAX_REVIEWS) throw new Error(`The AI has already reviewed this claim ${MAX_REVIEWS} times`);
+
+  await db().transaction(async (tx) => {
+    const [updated] = await tx
+      .update(schema.claims)
+      .set({ status: "reviewing", reviewStartedAt: null, updatedAt: new Date() })
+      .where(and(eq(schema.claims.id, claimId), eq(schema.claims.status, "needs_evidence")))
+      .returning({ id: schema.claims.id });
+    if (!updated) return;
+    await tx.insert(schema.events).values({ leaseId: found.lease.id, claimId, actor: found.role, type: "claim.review_requested", data: { by: user.name } });
   });
 }
 
@@ -198,7 +222,8 @@ export async function approveClaim(user: User, claimId: string) {
 
 /**
  * The submitter corrects the claimed amount. Any proposed split was computed from the old amount,
- * so it and its approvals are cleared, and the claim goes back for a fresh AI review.
+ * so it and its approvals are cleared; the claim then waits for changes until someone asks for a
+ * new AI review.
  */
 export async function updateClaimAmount(user: User, claimId: string, amountCents: Cents) {
   if (!Number.isSafeInteger(amountCents) || amountCents <= 0) throw new Error("The amount must be more than $0");
@@ -218,7 +243,8 @@ export async function updateClaimAmount(user: User, claimId: string, amountCents
       .update(schema.claims)
       .set({
         amountCents,
-        status: "reviewing",
+        // Wait for "Ask AI to review again" unless the first review hasn't run yet.
+        status: row.claim.status === "reviewing" ? "reviewing" : "needs_evidence",
         landlordShareCents: null,
         tenantShareCents: null,
         splitRationale: null,

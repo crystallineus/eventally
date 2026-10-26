@@ -18,7 +18,9 @@ export function describeEvent(type: string, data: unknown): string {
     case "claim.approved":
       return String(d.summary ?? "Both sides approved.");
     case "claim.amount_changed":
-      return `${by} changed the claimed amount from ${formatUsd(Number(d.fromCents ?? 0))} to ${formatUsd(Number(d.toCents ?? 0))}. The split was cleared for a new review.`;
+      return `${by} changed the claimed amount from ${formatUsd(Number(d.fromCents ?? 0))} to ${formatUsd(Number(d.toCents ?? 0))}. Any proposed split was cleared.`;
+    case "claim.review_requested":
+      return `${by} asked the AI to review the claim again.`;
     case "claim.withdrawn":
       return `${by} withdrew the claim.`;
     case "agent.review_finished":

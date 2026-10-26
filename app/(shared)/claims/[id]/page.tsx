@@ -3,12 +3,13 @@ import { notFound } from "next/navigation";
 import { ClaimStatus } from "@/app/components/claim-status";
 import { condenseReviews, describeEvent, groupSteps, proposalHistory, type Proposal } from "@/app/components/event-label";
 import { WhyTip } from "@/app/components/why-tip";
-import { getClaimDetail, getClaimForUser, isOpen } from "@/lib/claims";
+import { getClaimDetail, getClaimForUser, isOpen, MAX_REVIEWS } from "@/lib/claims";
 import { formatUsd, parseUsd } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import { approve } from "../actions";
 import { AddEvidenceForm } from "./add-evidence-form";
 import { EditAmount } from "./edit-amount";
+import { ReviewAgainButton } from "./review-again";
 import { EvidenceGallery } from "./evidence-gallery";
 import { ReviewRunner } from "./review-runner";
 import { SplitForm } from "./split-form";
@@ -33,6 +34,8 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
   const lastStart = events.findIndex((e) => e.type === "agent.review_started");
   const review = lastStart === -1 ? [] : events.slice(0, lastStart).filter((e) => e.actor === "agent").reverse();
   const evidenceRequest = claim.status === "needs_evidence" ? review.findLast((e) => e.type === "agent.request_more_evidence") : undefined;
+  const reviewsDone = events.filter((e) => e.type === "agent.review_started").length;
+  const reviewsLeft = Math.max(0, MAX_REVIEWS - reviewsDone);
   // The receipt total the AI last read, offered to the submitter as a one-click correction.
   const lastReceipt = events.find((e) => e.type === "agent.record_receipt");
   const receiptTotal = (lastReceipt?.data as { input?: { total?: string } } | undefined)?.input?.total;
@@ -66,18 +69,30 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
         <p className="mt-4 whitespace-pre-line text-stone-800">{claim.description}</p>
       </section>
 
-      <AiReview reviewing={claim.status === "reviewing"} claimId={claim.id} steps={review} />
+      <AiReview reviewing={claim.status === "reviewing"} claimId={claim.id} steps={review} reviewNumber={reviewsDone} />
 
-      {evidenceRequest && (
+      {claim.status === "needs_evidence" && (
         <section className="rounded-xl border border-amber-300 bg-amber-50 p-5">
           <h2 className="font-semibold text-amber-900">
-            EvenTally AI needs more evidence from the {String((evidenceRequest.data as { result?: { from?: string } }).result?.from ?? "submitter")}
+            {evidenceRequest
+              ? `EvenTally AI needs more evidence from the ${String((evidenceRequest.data as { result?: { from?: string } }).result?.from ?? "submitter")}`
+              : "Waiting for changes"}
           </h2>
-          <p className="mt-2 whitespace-pre-line text-amber-950">{describeEvent(evidenceRequest.type, evidenceRequest.data)}</p>
-          <p className="mt-2 text-sm text-amber-800">
-            Upload it below and the review starts again automatically. Can&apos;t provide it? Either of you can propose a split
-            under &ldquo;Who pays&rdquo; and the other side reviews it.
-          </p>
+          {evidenceRequest && <p className="mt-2 whitespace-pre-line text-amber-950">{describeEvent(evidenceRequest.type, evidenceRequest.data)}</p>}
+          {reviewsLeft > 0 ? (
+            <>
+              <p className="mt-2 text-sm text-amber-800">
+                Make all your changes first (photos, amount), then ask the AI to review again. Can&apos;t provide something?
+                Either of you can propose a split under &ldquo;Who pays&rdquo; and the other side reviews it.
+              </p>
+              <ReviewAgainButton claimId={claim.id} reviewsLeft={reviewsLeft} />
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-amber-800">
+              The AI has reviewed this claim {MAX_REVIEWS} times, which is the limit. Propose a split under &ldquo;Who pays&rdquo;
+              and the other side reviews it.
+            </p>
+          )}
         </section>
       )}
 
@@ -187,7 +202,7 @@ const STATUS_STYLE: Record<string, { icon: string; className: string }> = {
 
 type Step = { id: string; type: string; data: unknown };
 
-function AiReview({ reviewing, claimId, steps }: { reviewing: boolean; claimId: string; steps: Step[] }) {
+function AiReview({ reviewing, claimId, steps, reviewNumber }: { reviewing: boolean; claimId: string; steps: Step[]; reviewNumber: number }) {
   if (!reviewing && steps.length === 0) return null;
   const shown = steps.filter((s) => STEP_LABELS[s.type]);
   const notes = steps.filter((s) => !STEP_LABELS[s.type] && s.type !== "agent.review_started" && s.type !== "agent.review_finished");
@@ -195,7 +210,14 @@ function AiReview({ reviewing, claimId, steps }: { reviewing: boolean; claimId: 
   return (
     <section className="rounded-xl border border-sky-200 bg-white p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-semibold">AI review</h2>
+        <h2 className="font-semibold">
+          AI review
+          {reviewNumber > 0 && (
+            <span className="ml-2 text-sm font-normal text-stone-500">
+              Review {Math.min(reviewNumber, MAX_REVIEWS)} of {MAX_REVIEWS}
+            </span>
+          )}
+        </h2>
         <span className="text-xs text-stone-500">EvenTally AI · checks are hints, not verdicts</span>
       </div>
       {reviewing && (

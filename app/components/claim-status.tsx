@@ -4,7 +4,7 @@ type Status = (typeof schema.claimStatus.enumValues)[number];
 
 const STYLES: Record<Status, { label: string; className: string }> = {
   reviewing: { label: "In review", className: "bg-sky-50 text-sky-700" },
-  needs_evidence: { label: "Needs evidence", className: "bg-amber-50 text-amber-700" },
+  needs_evidence: { label: "Waiting for changes", className: "bg-amber-50 text-amber-700" },
   awaiting_approval: { label: "Awaiting approval", className: "bg-violet-50 text-violet-700" },
   approved: { label: "Approved · next invoice", className: "bg-emerald-50 text-emerald-700" },
   invoiced: { label: "On invoice", className: "bg-emerald-50 text-emerald-700" },

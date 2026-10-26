@@ -121,7 +121,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
                       rel="noopener noreferrer"
                       className="rounded-lg bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]"
                     >
-                      Pay {formatUsd(p.invoice.totalCents)} with PayPal
+                      Pay with PayPal
                     </a>
                   )}
                   {role === "landlord" && <RefreshInvoiceButton invoiceId={p.invoice.id} draft={p.invoice.status === "draft"} />}
@@ -137,17 +137,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         <p className="mb-3 text-sm text-stone-500">
           Every step — agent checks and reasoning, approvals, payments — is recorded here and visible to both of you.
         </p>
-        <ol className="space-y-2 text-sm">
-          {condenseReviews(ledger.events).map((e) => (
-            <li key={e.id} className="flex gap-3 rounded-lg bg-white px-4 py-2 ring-1 ring-stone-200">
-              <time className="shrink-0 font-mono text-xs leading-5 text-stone-500" dateTime={e.createdAt.toISOString()}>
-                {e.createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
-              </time>
-              <span className="shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 capitalize text-stone-600">{e.actor}</span>
-              <span className="text-stone-800">{describeEvent(e.type, e.data)}</span>
-            </li>
-          ))}
-        </ol>
+        <ActivityList events={condenseReviews(ledger.events)} />
       </section>
     </div>
   );
@@ -219,4 +209,45 @@ function StatusBadge({ invoiceStatus, settled }: { invoiceStatus: "draft" | "sen
           ? ["Paid", "bg-emerald-50 text-emerald-700"]
           : ["Open", "bg-amber-50 text-amber-700"];
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${className}`}>{label}</span>;
+}
+
+const ACTIVITY_PREVIEW = 3;
+
+type ActivityEvent = { id: string; type: string; actor: string; data: unknown; createdAt: Date };
+
+/** The latest few events, with the rest behind "Show more". */
+function ActivityList({ events }: { events: ActivityEvent[] }) {
+  const rest = events.slice(ACTIVITY_PREVIEW);
+  return (
+    <>
+      <ActivityItems events={events.slice(0, ACTIVITY_PREVIEW)} />
+      {rest.length > 0 && (
+        <details className="group mt-2">
+          <summary className="cursor-pointer list-none text-sm font-medium text-stone-600 hover:text-stone-900">
+            <span className="group-open:hidden">Show more ({rest.length})</span>
+            <span className="hidden group-open:inline">Show less</span>
+          </summary>
+          <div className="mt-2">
+            <ActivityItems events={rest} />
+          </div>
+        </details>
+      )}
+    </>
+  );
+}
+
+function ActivityItems({ events }: { events: ActivityEvent[] }) {
+  return (
+    <ol className="space-y-2 text-sm">
+      {events.map((e) => (
+        <li key={e.id} className="flex gap-3 rounded-lg bg-white px-4 py-2 ring-1 ring-stone-200">
+          <time className="shrink-0 font-mono text-xs leading-5 text-stone-500" dateTime={e.createdAt.toISOString()}>
+            {e.createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+          </time>
+          <span className="shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 capitalize text-stone-600">{e.actor}</span>
+          <span className="text-stone-800">{describeEvent(e.type, e.data)}</span>
+        </li>
+      ))}
+    </ol>
+  );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClaimStatus } from "@/app/components/claim-status";
 import { describeEvent } from "@/app/components/event-label";
+import { WhyTip } from "@/app/components/why-tip";
 import { getClaimDetail, getClaimForUser, isOpen } from "@/lib/claims";
 import { formatUsd } from "@/lib/money";
 import { requireUser } from "@/lib/session";
@@ -212,9 +213,11 @@ function AiReview({ reviewing, claimId, steps }: { reviewing: boolean; claimId: 
                 {style.icon}
               </span>
               <div>
-                <p className="font-medium text-stone-900">{STEP_LABELS[s.type]}</p>
+                <p className="flex items-center gap-2 font-medium text-stone-900">
+                  {STEP_LABELS[s.type]}
+                  {d.why && <WhyTip why={d.why} />}
+                </p>
                 {s.type !== "agent.request_more_evidence" && <p className="text-stone-700">{d.result?.summary}</p>}
-                {d.why && <p className="text-xs text-stone-500">Why: {d.why}</p>}
               </div>
             </li>
           );

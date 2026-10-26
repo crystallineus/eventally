@@ -57,9 +57,11 @@ export type Adjustment = {
   amountCents: Cents;
   description: string;
   claimId?: string;
+  /** Set when the adjustment already exists as a ledger entry (credit carried over from an earlier period). */
+  entryId?: string;
 };
 
-export type InvoiceLine = { name: string; amountCents: Cents; claimId?: string };
+export type InvoiceLine = { name: string; amountCents: Cents; claimId?: string; entryId?: string };
 
 export type RentInvoice = {
   lines: InvoiceLine[];
@@ -84,10 +86,10 @@ export function buildRentInvoice(rent: { name: string; amountCents: Cents }, adj
     { name: rent.name, amountCents: rent.amountCents },
     ...adjustments
       .filter((a) => a.kind === "charge")
-      .map((a) => ({ name: a.description, amountCents: a.amountCents, claimId: a.claimId })),
+      .map((a) => ({ name: a.description, amountCents: a.amountCents, claimId: a.claimId, entryId: a.entryId })),
     ...adjustments
       .filter((a) => a.kind === "credit")
-      .map((a) => ({ name: a.description, amountCents: -a.amountCents, claimId: a.claimId })),
+      .map((a) => ({ name: a.description, amountCents: -a.amountCents, claimId: a.claimId, entryId: a.entryId })),
   ];
 
   const raw = sum(lines.map((l) => l.amountCents));

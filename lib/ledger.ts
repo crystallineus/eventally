@@ -95,18 +95,28 @@ export async function getLedger(lease: Lease): Promise<LedgerView> {
     };
   });
 
-  const lastRent = entries.filter((e) => e.kind === "rent").map((e) => e.period).sort().at(-1);
-  const upcomingPeriod = lastRent ? nextPeriod(lastRent) : periodOf(lease.startDate);
-  const label = formatPeriod(upcomingPeriod);
-
   return {
     periods,
     balanceCents: sum(entries.map((e) => e.amountCents)),
-    upcoming: {
-      period: upcomingPeriod,
-      label,
-      invoice: buildRentInvoice({ name: `Rent – ${label}`, amountCents: lease.rentCents }, adjustmentsFromClaims(lease, claims)),
-    },
+    upcoming: planNextInvoice(lease, entries, claims),
     events,
+  };
+}
+
+/**
+ * The next rent invoice: rent for the period after the last one billed, plus approved claims
+ * and any credit carried over into that period. Used for the preview and to issue the invoice.
+ */
+export function planNextInvoice(lease: Lease, entries: LedgerEntry[], claims: Claim[]) {
+  const lastRent = entries.filter((e) => e.kind === "rent").map((e) => e.period).sort().at(-1);
+  const period = lastRent ? nextPeriod(lastRent) : periodOf(lease.startDate);
+  const label = formatPeriod(period);
+  const carriedOver: Adjustment[] = entries
+    .filter((e) => e.kind === "carry_over" && e.period === period && e.invoiceId === null)
+    .map((e) => ({ kind: "credit", amountCents: -e.amountCents, description: e.description, entryId: e.id }));
+  return {
+    period,
+    label,
+    invoice: buildRentInvoice({ name: `Rent – ${label}`, amountCents: lease.rentCents }, [...adjustmentsFromClaims(lease, claims), ...carriedOver]),
   };
 }

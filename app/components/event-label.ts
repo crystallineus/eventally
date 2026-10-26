@@ -25,6 +25,14 @@ export function describeEvent(type: string, data: unknown): string {
       return `${by} asked the AI to review the claim again.`;
     case "claim.withdrawn":
       return `${by} withdrew the claim.`;
+    case "invoice.created":
+      return `${by} issued the ${d.period} rent invoice for ${formatUsd(Number(d.totalCents ?? 0))}.`;
+    case "invoice.sent":
+      return `PayPal invoice sent to ${d.to} for ${formatUsd(Number(d.totalCents ?? 0))}.`;
+    case "invoice.send_failed":
+      return "PayPal didn't accept the invoice; it's saved as a draft.";
+    case "invoice.paid":
+      return String(d.summary ?? "Invoice paid.");
     case "agent.review_finished":
       return "EvenTally AI finished its review.";
     case REVIEW_SUMMARY:

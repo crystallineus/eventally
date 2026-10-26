@@ -6,6 +6,7 @@ import { getLedger, getLeasesForUser, roleIn, type LeaseWithParties } from "@/li
 import { formatUsd } from "@/lib/money";
 import { formatLeaseTerm } from "@/lib/period";
 import { requireUser } from "@/lib/session";
+import { PaymentWatcher, RefreshInvoiceButton, SendInvoiceButton } from "./invoice-controls";
 
 export default async function LedgerPage({ searchParams }: PageProps<"/ledger">) {
   const user = await requireUser();
@@ -20,8 +21,12 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
   const [ledger, claims] = await Promise.all([getLedger(lease), listClaims(lease.id)]);
   const role = roleIn(lease, user.id);
 
+  const awaitingPayment = ledger.periods.some((p) => p.invoice?.status === "sent");
+  const outstanding = ledger.periods.find((p) => p.invoice?.status === "sent" || p.invoice?.status === "draft");
+
   return (
     <div className="space-y-8">
+      {awaitingPayment && <PaymentWatcher />}
       {leases.length > 1 && (
         <nav className="flex flex-wrap gap-2 text-sm">
           {leases.map((l) => (
@@ -87,6 +92,13 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
             {formatUsd(ledger.upcoming.invoice.carryOverCents)} of credit carries over to the following month.
           </p>
         )}
+        {role === "landlord" && outstanding ? (
+          <p className="mt-3 text-sm text-stone-500">You can send this after the {outstanding.label} invoice is paid.</p>
+        ) : role === "landlord" ? (
+          <SendInvoiceButton leaseId={lease.id} label={ledger.upcoming.label} />
+        ) : (
+          <p className="mt-3 text-sm text-stone-500">{lease.landlord.name} sends this as a PayPal invoice before rent is due.</p>
+        )}
       </section>
 
       <section>
@@ -96,10 +108,25 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
             <div key={p.period} className="rounded-xl border border-stone-200 bg-white p-5">
               <div className="flex items-baseline justify-between">
                 <h3 className="font-medium">{p.label}</h3>
-                <StatusBadge settled={p.balanceCents === 0} />
+                <StatusBadge invoiceStatus={p.invoice?.status ?? null} settled={p.balanceCents === 0} />
               </div>
               <Lines lines={p.entries.map((e) => ({ name: e.description, amountCents: e.amountCents }))} />
               <TotalRow label="Balance" cents={p.balanceCents} />
+              {p.invoice && p.invoice.status !== "paid" && (
+                <div className="mt-3 flex flex-wrap items-center gap-4">
+                  {role === "tenant" && p.invoice.status === "sent" && p.invoice.payerUrl && (
+                    <a
+                      href={p.invoice.payerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-lg bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]"
+                    >
+                      Pay {formatUsd(p.invoice.totalCents)} with PayPal
+                    </a>
+                  )}
+                  {role === "landlord" && <RefreshInvoiceButton invoiceId={p.invoice.id} draft={p.invoice.status === "draft"} />}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -182,10 +209,14 @@ function TotalRow({ label, cents }: { label: string; cents: number }) {
   );
 }
 
-function StatusBadge({ settled }: { settled: boolean }) {
-  return settled ? (
-    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Paid</span>
-  ) : (
-    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Open</span>
-  );
+function StatusBadge({ invoiceStatus, settled }: { invoiceStatus: "draft" | "sent" | "paid" | "cancelled" | null; settled: boolean }) {
+  const [label, className] =
+    invoiceStatus === "sent"
+      ? ["Invoice sent · awaiting payment", "bg-sky-50 text-sky-700"]
+      : invoiceStatus === "draft"
+        ? ["Not sent yet", "bg-red-50 text-red-700"]
+        : settled
+          ? ["Paid", "bg-emerald-50 text-emerald-700"]
+          : ["Open", "bg-amber-50 text-amber-700"];
+  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${className}`}>{label}</span>;
 }

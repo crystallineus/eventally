@@ -233,6 +233,8 @@ export async function approveClaim(user: User, claimId: string) {
     if (row.claim.status !== "awaiting_approval") throw new Error("There is no proposal to approve");
 
     const role = roleOf(row.lease, user.id);
+    // Already approved (e.g. a double click): nothing to change, nothing to log.
+    if ((role === "landlord" ? row.claim.landlordApprovedAt : row.claim.tenantApprovedAt) !== null) return;
     const now = new Date();
     const landlordApprovedAt = role === "landlord" ? now : row.claim.landlordApprovedAt;
     const tenantApprovedAt = role === "tenant" ? now : row.claim.tenantApprovedAt;

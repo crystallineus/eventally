@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClaimStatus } from "@/app/components/claim-status";
+import { SubmitButton } from "@/app/components/submit-button";
 import { condenseReviews, describeEvent, groupSteps, proposalHistory, type Proposal } from "@/app/components/event-label";
 import { WhyTip } from "@/app/components/why-tip";
 import { getClaimDetail, getClaimForUser, isOpen, MAX_REVIEWS } from "@/lib/claims";
@@ -142,7 +143,9 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
         {claim.status === "awaiting_approval" && !myApproval && (
           <form action={approve} className="mt-4">
             <input type="hidden" name="claimId" value={claim.id} />
-            <button className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600">Approve this split</button>
+            <SubmitButton pendingLabel="Approving…" className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50">
+              Approve this split
+            </SubmitButton>
           </form>
         )}
         {claim.status === "awaiting_approval" && myApproval && (

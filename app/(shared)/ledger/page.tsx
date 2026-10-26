@@ -95,7 +95,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         {role === "landlord" && outstanding ? (
           <p className="mt-3 text-sm text-stone-500">You can send this after the {outstanding.label} invoice is paid.</p>
         ) : role === "landlord" ? (
-          <SendInvoiceButton leaseId={lease.id} label={ledger.upcoming.label} />
+          <SendInvoiceButton leaseId={lease.id} />
         ) : (
           <p className="mt-3 text-sm text-stone-500">{lease.landlord.name} sends this as a PayPal invoice before rent is due.</p>
         )}

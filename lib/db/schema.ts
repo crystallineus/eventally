@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   customType,
   date,
@@ -83,6 +84,8 @@ export const claims = pgTable(
     landlordShareCents: integer("landlord_share_cents"),
     tenantShareCents: integer("tenant_share_cents"),
     splitRationale: text("split_rationale"),
+    /** The tenant asked to be paid back right away via PayPal rather than credited on rent. A request; the landlord decides. */
+    tenantWantsPayout: boolean("tenant_wants_payout").notNull().default(false),
     /** Set while an agent review runs, so two reviews of the same claim can't overlap. */
     reviewStartedAt: timestamp("review_started_at", { withTimezone: true }),
     landlordApprovedAt: timestamp("landlord_approved_at", { withTimezone: true }),

@@ -1,0 +1,1 @@
+ALTER TABLE "claims" ADD COLUMN "tenant_wants_payout" boolean DEFAULT false NOT NULL;

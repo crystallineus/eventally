@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { addEvidence, approveClaim, createClaim, getClaimForUser, proposeSplit, removeEvidence, requestReview, updateClaimAmount, withdrawClaim } from "@/lib/claims";
+import { addEvidence, approveClaim, createClaim, getClaimForUser, proposeSplit, removeEvidence, requestReview, setPayoutPreference, updateClaimAmount, withdrawClaim } from "@/lib/claims";
 import { db, schema } from "@/lib/db";
 import { payClaimNow, syncPayout } from "@/lib/payouts";
 import { parseUsd } from "@/lib/money";
@@ -52,6 +52,7 @@ export async function submitClaim(_prev: FormState, formData: FormData): Promise
       description: parsed.data.description,
       issueReportedAt: new Date(`${parsed.data.issueDate}T12:00:00Z`),
       amountCents,
+      tenantWantsPayout: formData.get("wantsPayout") === "on",
       files,
     });
   } catch (err) {
@@ -162,4 +163,11 @@ export async function refreshPayout(claimId: string) {
   if (!(await getClaimForUser(claimId, user.id))) return;
   const [payout] = await db().select().from(schema.payouts).where(eq(schema.payouts.claimId, claimId));
   if (payout?.status === "pending") await syncPayout(payout.id);
+}
+
+export async function changePayoutPreference(formData: FormData) {
+  const user = await requireUser();
+  const claimId = String(formData.get("claimId"));
+  await setPayoutPreference(user, claimId, formData.get("wantsPayout") === "true");
+  revalidatePath(`/claims/${claimId}`);
 }

@@ -68,6 +68,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
                     <span className="font-medium">{c.title}</span>
                     <span className="ml-2 text-sm text-stone-500">
                       {c.submittedBy === lease.landlordId ? "paid by landlord" : "paid by tenant"}
+                      {c.tenantWantsPayout && (c.status === "approved" || c.status === "awaiting_approval") && " · asked to be paid back now"}
                     </span>
                   </span>
                   <span className="flex items-center gap-3">
@@ -113,6 +114,13 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
               </div>
               <Lines lines={p.entries.map((e) => ({ name: e.description, amountCents: e.amountCents }))} />
               <TotalRow label="Balance" cents={p.balanceCents} />
+              {p.invoice?.status === "paid" && p.invoice.totalCents > 0 && (
+                <p className="mt-3 text-sm text-stone-500">
+                  {role === "tenant"
+                    ? `Paid through PayPal${p.invoice.paidAt ? ` on ${formatDateTime(p.invoice.paidAt)}` : ""}. It may take a little while to show up in ${lease.landlord.name.split(" ")[0]}'s PayPal activity.`
+                    : `PayPal confirmed this payment${p.invoice.paidAt ? ` on ${formatDateTime(p.invoice.paidAt)}` : ""}. If it isn't in your PayPal activity yet, give it a few minutes; PayPal may also hold funds for a while on some accounts.`}
+                </p>
+              )}
               {p.invoice && p.invoice.status !== "paid" && (
                 <div className="mt-3 flex flex-wrap items-center gap-4">
                   {role === "tenant" && p.invoice.status === "sent" && p.invoice.payerUrl && (

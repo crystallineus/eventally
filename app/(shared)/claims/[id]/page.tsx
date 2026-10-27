@@ -10,7 +10,7 @@ import { getClaimDetail, getClaimForUser, isOpen, MAX_REVIEWS } from "@/lib/clai
 import { db, schema } from "@/lib/db";
 import { formatUsd, parseUsd } from "@/lib/money";
 import { requireUser } from "@/lib/session";
-import { approve } from "../actions";
+import { approve, changePayoutPreference } from "../actions";
 import { AddEvidenceForm } from "./add-evidence-form";
 import { PayBackButton, PayoutWatcher } from "./pay-back";
 import { EditAmount } from "./edit-amount";
@@ -188,6 +188,8 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           tenantName={names.get(lease.tenantId ?? "") ?? "the tenant"}
           landlordName={names.get(lease.landlordId) ?? "The landlord"}
           payout={payout}
+          tenantWantsPayout={claim.tenantWantsPayout}
+          canChangePreference={role === "tenant" && claim.submittedBy === user.id && (open || claim.status === "approved")}
         />
 
         {claim.status === "awaiting_approval" && !myApproval && (
@@ -365,6 +367,8 @@ function PayBack({
   tenantName,
   landlordName,
   payout,
+  tenantWantsPayout,
+  canChangePreference,
 }: {
   claimId: string;
   status: string;
@@ -374,13 +378,23 @@ function PayBack({
   tenantName: string;
   landlordName: string;
   payout: typeof schema.payouts.$inferSelect | undefined;
+  tenantWantsPayout: boolean;
+  canChangePreference: boolean;
 }) {
+  const firstName = (name: string) => name.split(" ")[0];
   if (status === "paid_out" && payout) {
     return payout.status === "succeeded" ? (
-      <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
-        ✓ {landlordName} paid {formatUsd(payout.amountCents)} back to {tenantName} via PayPal on {formatDateTime(payout.updatedAt)}. It
-        isn&apos;t added to a rent invoice.
-      </p>
+      <div className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
+        <p>
+          ✓ {landlordName} paid {formatUsd(payout.amountCents)} back to {tenantName} via PayPal on {formatDateTime(payout.updatedAt)}. It
+          isn&apos;t added to a rent invoice.
+        </p>
+        <p className="mt-1 text-emerald-700">
+          {role === "tenant"
+            ? "It may take a few minutes to show up in your PayPal account."
+            : `The money left your PayPal account right away; it may take a few minutes to show up in ${firstName(tenantName)}'s.`}
+        </p>
+      </div>
     ) : (
       <p className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-800">
         <PayoutWatcher claimId={claimId} />
@@ -388,21 +402,46 @@ function PayBack({
       </p>
     );
   }
-  if (status !== "approved") return null;
+  if (status === "invoiced" || status === "settled") {
+    return tenantWantsPayout ? (
+      <p className="mt-4 text-sm text-stone-600">
+        {firstName(tenantName)} asked to be paid back right away; {firstName(landlordName)} chose to credit it on the rent invoice instead.
+      </p>
+    ) : null;
+  }
+
+  const preference = canChangePreference ? (
+    <form action={changePayoutPreference} className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+      <input type="hidden" name="claimId" value={claimId} />
+      <input type="hidden" name="wantsPayout" value={String(!tenantWantsPayout)} />
+      <span className="text-stone-600">
+        {tenantWantsPayout ? "You asked to be paid back right away via PayPal." : "You'll be credited on the next rent invoice."}
+      </span>
+      <SubmitButton className="text-stone-700 underline hover:text-stone-900">
+        {tenantWantsPayout ? "A rent credit is fine" : "Ask to be paid back now instead"}
+      </SubmitButton>
+    </form>
+  ) : null;
+
+  if (status !== "approved") return preference;
   if (payout?.status === "failed") {
     return <p className="mt-4 text-sm text-stone-600">A PayPal payout didn&apos;t go through, so this will be credited on the next rent invoice.</p>;
   }
-  if (!canPayNow) return null;
+  if (!canPayNow) return preference;
   return role === "landlord" ? (
-    <div className="mt-4 rounded-lg border border-stone-200 p-3 text-sm">
+    <div className={`mt-4 rounded-lg border p-3 text-sm ${tenantWantsPayout ? "border-sky-300 bg-sky-50" : "border-stone-200"}`}>
+      {tenantWantsPayout && <p className="mb-1 font-medium text-sky-900">{firstName(tenantName)} asked to be paid back right away via PayPal.</p>}
       <p className="text-stone-700">
-        Don&apos;t want {tenantName} to wait for next month? Pay {formatUsd(amountCents)} back now instead of crediting the rent.
+        {tenantWantsPayout
+          ? `You decide: pay ${formatUsd(amountCents)} back now, or leave it as a credit on the next rent invoice.`
+          : `Don't want ${firstName(tenantName)} to wait for next month? Pay ${formatUsd(amountCents)} back now instead of crediting the rent.`}
       </p>
-      <PayBackButton claimId={claimId} amount={formatUsd(amountCents)} tenantName={tenantName} />
+      <PayBackButton claimId={claimId} amount={formatUsd(amountCents)} tenantName={firstName(tenantName)} />
     </div>
   ) : (
-    <p className="mt-4 text-sm text-stone-600">
-      {landlordName} can also pay this back to your PayPal right away instead of crediting next month&apos;s rent.
-    </p>
+    <div className="mt-4 text-sm text-stone-600">
+      <p>{landlordName} can pay this back to your PayPal right away instead of crediting next month&apos;s rent.</p>
+      {preference}
+    </div>
   );
 }

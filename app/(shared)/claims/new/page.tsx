@@ -20,7 +20,7 @@ export default async function NewClaimPage({ searchParams }: PageProps<"/claims/
         </p>
       </div>
       <NewClaimForm
-        leases={leases.map((l) => ({ id: l.id, name: l.propertyName }))}
+        leases={leases.map((l) => ({ id: l.id, name: l.propertyName, isTenant: l.tenantId === user.id, landlordName: l.landlord.name.split(" ")[0] }))}
         defaultLeaseId={typeof lease === "string" ? lease : leases[0].id}
         today={todayInAppZone()}
       />

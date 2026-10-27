@@ -10,6 +10,7 @@ const STYLES: Record<Status, { label: string; className: string }> = {
   invoiced: { label: "On invoice", className: "bg-emerald-50 text-emerald-700" },
   settled: { label: "Settled", className: "bg-stone-100 text-stone-600" },
   withdrawn: { label: "Withdrawn", className: "bg-stone-100 text-stone-500" },
+  paid_out: { label: "Paid back via PayPal", className: "bg-emerald-50 text-emerald-700" },
 };
 
 export function ClaimStatus({ status }: { status: Status }) {

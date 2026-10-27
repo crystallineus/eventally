@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { formatDateTime } from "@/lib/time";
 import { notFound } from "next/navigation";
@@ -6,10 +7,12 @@ import { SubmitButton } from "@/app/components/submit-button";
 import { condenseReviews, describeEvent, groupSteps, proposalHistory, type Proposal } from "@/app/components/event-label";
 import { WhyTip } from "@/app/components/why-tip";
 import { getClaimDetail, getClaimForUser, isOpen, MAX_REVIEWS } from "@/lib/claims";
+import { db, schema } from "@/lib/db";
 import { formatUsd, parseUsd } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import { approve } from "../actions";
 import { AddEvidenceForm } from "./add-evidence-form";
+import { PayBackButton, PayoutWatcher } from "./pay-back";
 import { EditAmount } from "./edit-amount";
 import { ReviewAgainButton } from "./review-again";
 import { EvidenceGallery } from "./evidence-gallery";
@@ -25,7 +28,10 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
   const found = await getClaimForUser(id, user.id);
   if (!found) notFound();
   const { claim, lease, role } = found;
-  const { evidence, events, names } = await getClaimDetail(claim.id);
+  const [{ evidence, events, names }, [payout]] = await Promise.all([
+    getClaimDetail(claim.id),
+    db().select().from(schema.payouts).where(eq(schema.payouts.claimId, claim.id)),
+  ]);
 
   const submitter = names.get(claim.submittedBy) ?? "Unknown";
   const tenantPaid = claim.submittedBy !== lease.landlordId;
@@ -164,13 +170,25 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
               <Share label="Tenant pays" cents={claim.tenantShareCents ?? 0} approvedAt={claim.tenantApprovedAt} />
             </dl>
             {claim.splitRationale && <p className="mt-3 rounded-lg bg-stone-50 p-3 text-sm text-stone-700">{claim.splitRationale}</p>}
-            <p className="mt-3 text-sm text-stone-600">
-              {tenantPaid
-                ? `On approval, ${formatUsd(claim.landlordShareCents)} is credited on the tenant's next rent invoice.`
-                : `On approval, ${formatUsd(claim.tenantShareCents ?? 0)} is added to the tenant's next rent invoice.`}
-            </p>
+            {claim.status !== "paid_out" && (
+              <p className="mt-3 text-sm text-stone-600">
+                {tenantPaid
+                  ? `On approval, ${formatUsd(claim.landlordShareCents)} is credited on the tenant's next rent invoice.`
+                  : `On approval, ${formatUsd(claim.tenantShareCents ?? 0)} is added to the tenant's next rent invoice.`}
+              </p>
+            )}
           </>
         )}
+        <PayBack
+          claimId={claim.id}
+          status={claim.status}
+          canPayNow={tenantPaid && (claim.landlordShareCents ?? 0) > 0 && payout?.status !== "failed"}
+          role={role}
+          amountCents={claim.landlordShareCents ?? 0}
+          tenantName={names.get(lease.tenantId ?? "") ?? "the tenant"}
+          landlordName={names.get(lease.landlordId) ?? "The landlord"}
+          payout={payout}
+        />
 
         {claim.status === "awaiting_approval" && !myApproval && (
           <form action={approve} className="mt-4">
@@ -335,5 +353,56 @@ function EarlierProposals({ proposals }: { proposals: Proposal[] }) {
         ))}
       </ol>
     </details>
+  );
+}
+
+function PayBack({
+  claimId,
+  status,
+  canPayNow,
+  role,
+  amountCents,
+  tenantName,
+  landlordName,
+  payout,
+}: {
+  claimId: string;
+  status: string;
+  canPayNow: boolean;
+  role: "landlord" | "tenant";
+  amountCents: number;
+  tenantName: string;
+  landlordName: string;
+  payout: typeof schema.payouts.$inferSelect | undefined;
+}) {
+  if (status === "paid_out" && payout) {
+    return payout.status === "succeeded" ? (
+      <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
+        ✓ {landlordName} paid {formatUsd(payout.amountCents)} back to {tenantName} via PayPal on {formatDateTime(payout.updatedAt)}. It
+        isn&apos;t added to a rent invoice.
+      </p>
+    ) : (
+      <p className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-800">
+        <PayoutWatcher claimId={claimId} />
+        PayPal is sending {formatUsd(payout.amountCents)} to {tenantName}… ({payout.paypalStatus ?? "starting"})
+      </p>
+    );
+  }
+  if (status !== "approved") return null;
+  if (payout?.status === "failed") {
+    return <p className="mt-4 text-sm text-stone-600">A PayPal payout didn&apos;t go through, so this will be credited on the next rent invoice.</p>;
+  }
+  if (!canPayNow) return null;
+  return role === "landlord" ? (
+    <div className="mt-4 rounded-lg border border-stone-200 p-3 text-sm">
+      <p className="text-stone-700">
+        Don&apos;t want {tenantName} to wait for next month? Pay {formatUsd(amountCents)} back now instead of crediting the rent.
+      </p>
+      <PayBackButton claimId={claimId} amount={formatUsd(amountCents)} tenantName={tenantName} />
+    </div>
+  ) : (
+    <p className="mt-4 text-sm text-stone-600">
+      {landlordName} can also pay this back to your PayPal right away instead of crediting next month&apos;s rent.
+    </p>
   );
 }

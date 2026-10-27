@@ -33,6 +33,12 @@ export function describeEvent(type: string, data: unknown): string {
       return "PayPal didn't accept the invoice; it's saved as a draft.";
     case "invoice.paid":
       return String(d.summary ?? "Invoice paid.");
+    case "payout.started":
+      return `${by} started paying ${formatUsd(Number(d.amountCents ?? 0))} back through PayPal.`;
+    case "payout.succeeded":
+      return `PayPal sent ${formatUsd(Number(d.amountCents ?? 0))} to ${d.to}.`;
+    case "payout.failed":
+      return `The PayPal payout didn't go through (${d.reason}). The claim will be credited on the next rent invoice instead.`;
     case "agent.review_finished":
       return "EvenTally AI finished its review.";
     case REVIEW_SUMMARY:

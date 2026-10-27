@@ -329,11 +329,12 @@ export async function updateClaimAmount(user: User, claimId: string, amountCents
   });
 }
 
-/** The tenant who submitted a claim changes how they'd like to be paid back, until it's settled. */
+/** The tenant who submitted a claim changes how they'd like to be paid back, until both sides approve. */
 export async function setPayoutPreference(user: User, claimId: string, wantsPayout: boolean) {
   const found = await getClaimForUser(claimId, user.id);
   if (!found || found.claim.submittedBy !== user.id || found.role !== "tenant") throw new Error("Only the tenant who submitted the claim can change this");
-  if (!isOpen(found.claim) && found.claim.status !== "approved") throw new Error("This claim has already been paid back or invoiced");
+  // The landlord approved with this preference in view, so it's fixed once both sides agree.
+  if (!isOpen(found.claim)) throw new Error("Both of you already approved this claim, so the payback preference can't change");
   if (found.claim.tenantWantsPayout === wantsPayout) return;
   await db().transaction(async (tx) => {
     await tx.update(schema.claims).set({ tenantWantsPayout: wantsPayout, updatedAt: new Date() }).where(eq(schema.claims.id, claimId));

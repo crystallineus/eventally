@@ -192,7 +192,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           landlordName={names.get(lease.landlordId) ?? "The landlord"}
           payout={payout}
           tenantWantsPayout={claim.tenantWantsPayout}
-          canChangePreference={role === "tenant" && claim.submittedBy === user.id && (open || claim.status === "approved")}
+          canChangePreference={role === "tenant" && claim.submittedBy === user.id && open}
         />
 
         {claim.status === "awaiting_approval" && !myApproval && role === "landlord" && tenantPaid && claim.tenantWantsPayout && (
@@ -443,8 +443,11 @@ function PayBack({
     </div>
   ) : (
     <div className="mt-4 text-sm text-stone-600">
-      <p>{landlordName} can pay this back to your PayPal right away instead of crediting next month&apos;s rent.</p>
-      {preference}
+      <p>
+        {tenantWantsPayout
+          ? `You asked to be paid back right away via PayPal. ${firstName(landlordName)} decides whether to pay it back now or credit it on next month's rent.`
+          : `${landlordName} can pay this back to your PayPal right away instead of crediting next month's rent.`}
+      </p>
     </div>
   );
 }

@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { formatDateTime } from "@/lib/time";
 import { ClaimStatus } from "@/app/components/claim-status";
-import { condenseReviews, describeEvent } from "@/app/components/event-label";
+import { condenseReviews } from "@/app/components/event-label";
 import { listClaims } from "@/lib/claims";
 import { getLedger, getLeasesForUser, roleIn, type LeaseWithParties } from "@/lib/ledger";
 import { formatUsd } from "@/lib/money";
 import { formatLeaseTerm } from "@/lib/period";
 import { requireUser } from "@/lib/session";
 import { PaymentWatcher, RefreshInvoiceButton, SendInvoiceButton } from "./invoice-controls";
+import { ActivityList } from "@/app/components/activity-list";
 
 export default async function LedgerPage({ searchParams }: PageProps<"/ledger">) {
   const user = await requireUser();
@@ -218,45 +219,4 @@ function StatusBadge({ invoiceStatus, settled }: { invoiceStatus: "draft" | "sen
           ? ["Paid", "bg-emerald-50 text-emerald-700"]
           : ["Open", "bg-amber-50 text-amber-700"];
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${className}`}>{label}</span>;
-}
-
-const ACTIVITY_PREVIEW = 3;
-
-type ActivityEvent = { id: string; type: string; actor: string; data: unknown; createdAt: Date };
-
-/** The latest few events, with the rest behind "Show more". */
-function ActivityList({ events }: { events: ActivityEvent[] }) {
-  const rest = events.slice(ACTIVITY_PREVIEW);
-  return (
-    <>
-      <ActivityItems events={events.slice(0, ACTIVITY_PREVIEW)} />
-      {rest.length > 0 && (
-        <details className="group mt-2">
-          <summary className="cursor-pointer list-none text-sm font-medium text-stone-600 hover:text-stone-900">
-            <span className="group-open:hidden">Show more ({rest.length})</span>
-            <span className="hidden group-open:inline">Show less</span>
-          </summary>
-          <div className="mt-2">
-            <ActivityItems events={rest} />
-          </div>
-        </details>
-      )}
-    </>
-  );
-}
-
-function ActivityItems({ events }: { events: ActivityEvent[] }) {
-  return (
-    <ol className="space-y-2 text-sm">
-      {events.map((e) => (
-        <li key={e.id} className="flex gap-3 rounded-lg bg-white px-4 py-2 ring-1 ring-stone-200">
-          <time className="shrink-0 font-mono text-xs leading-5 text-stone-500" dateTime={e.createdAt.toISOString()}>
-            {formatDateTime(e.createdAt)}
-          </time>
-          <span className="shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 capitalize text-stone-600">{e.actor}</span>
-          <span className="text-stone-800">{describeEvent(e.type, e.data)}</span>
-        </li>
-      ))}
-    </ol>
-  );
 }

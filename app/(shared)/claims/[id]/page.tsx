@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { formatDateTime } from "@/lib/time";
 import { notFound } from "next/navigation";
+import { ActivityList } from "@/app/components/activity-list";
 import { ClaimStatus } from "@/app/components/claim-status";
 import { SubmitButton } from "@/app/components/submit-button";
 import { condenseReviews, describeEvent, groupSteps, proposalHistory, type Proposal } from "@/app/components/event-label";
@@ -212,17 +213,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
 
       <section>
         <h2 className="mb-3 font-semibold">Claim history</h2>
-        <ol className="space-y-2 text-sm">
-          {condenseReviews(events).map((e) => (
-            <li key={e.id} className="flex gap-3 rounded-lg bg-white px-4 py-2 ring-1 ring-stone-200">
-              <time className="shrink-0 font-mono text-xs leading-5 text-stone-500" dateTime={e.createdAt.toISOString()}>
-                {formatDateTime(e.createdAt)}
-              </time>
-              <span className="shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 capitalize text-stone-600">{e.actor}</span>
-              <span className="text-stone-800">{describeEvent(e.type, e.data)}</span>
-            </li>
-          ))}
-        </ol>
+        <ActivityList events={condenseReviews(events)} />
       </section>
 
       {open && claim.submittedBy === user.id && <WithdrawButton claimId={claim.id} />}

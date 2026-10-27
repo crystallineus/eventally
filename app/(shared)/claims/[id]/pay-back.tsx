@@ -10,7 +10,7 @@ export function PayBackButton({ claimId, amount, tenantName }: { claimId: string
     <form
       action={action}
       onSubmit={(e) => {
-        if (!confirm(`Send ${amount} to ${tenantName}'s PayPal now? It won't be credited on the next rent invoice. PayPal may charge you a small fee.`)) {
+        if (!confirm(`Send ${amount} to ${tenantName}'s PayPal now? It won't also be credited on the next rent invoice.`)) {
           e.preventDefault();
         }
       }}

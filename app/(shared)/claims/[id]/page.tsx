@@ -195,6 +195,12 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           canChangePreference={role === "tenant" && claim.submittedBy === user.id && (open || claim.status === "approved")}
         />
 
+        {claim.status === "awaiting_approval" && !myApproval && role === "landlord" && tenantPaid && claim.tenantWantsPayout && (
+          <p className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-900">
+            {(names.get(lease.tenantId ?? "") ?? "The tenant").split(" ")[0]} asked to be paid back right away via PayPal. After you
+            approve, you choose: pay it back now, or credit it on the next rent invoice. {PAYOUT_FEE_NOTE}
+          </p>
+        )}
         {claim.status === "awaiting_approval" && !myApproval && (
           <form action={approve} className="mt-4">
             <input type="hidden" name="claimId" value={claim.id} />
@@ -351,6 +357,9 @@ function EarlierProposals({ proposals }: { proposals: Proposal[] }) {
   );
 }
 
+const PAYOUT_FEE_NOTE =
+  "Paying back via PayPal costs you a PayPal payout fee, shown in your PayPal activity. A credit on the rent invoice adds no extra fee.";
+
 function PayBack({
   claimId,
   status,
@@ -429,6 +438,7 @@ function PayBack({
           ? `You decide: pay ${formatUsd(amountCents)} back now, or leave it as a credit on the next rent invoice.`
           : `Don't want ${firstName(tenantName)} to wait for next month? Pay ${formatUsd(amountCents)} back now instead of crediting the rent.`}
       </p>
+      <p className="mt-1 text-stone-500">{PAYOUT_FEE_NOTE}</p>
       <PayBackButton claimId={claimId} amount={formatUsd(amountCents)} tenantName={firstName(tenantName)} />
     </div>
   ) : (

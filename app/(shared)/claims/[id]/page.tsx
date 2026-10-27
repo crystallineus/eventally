@@ -172,9 +172,11 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
             {claim.splitRationale && <p className="mt-3 rounded-lg bg-stone-50 p-3 text-sm text-stone-700">{claim.splitRationale}</p>}
             {claim.status !== "paid_out" && (
               <p className="mt-3 text-sm text-stone-600">
-                {tenantPaid
-                  ? `On approval, ${formatUsd(claim.landlordShareCents)} is credited on the tenant's next rent invoice.`
-                  : `On approval, ${formatUsd(claim.tenantShareCents ?? 0)} is added to the tenant's next rent invoice.`}
+                {!tenantPaid
+                  ? `On approval, ${formatUsd(claim.tenantShareCents ?? 0)} is added to the tenant's next rent invoice.`
+                  : claim.tenantWantsPayout
+                    ? `On approval, ${(names.get(lease.landlordId) ?? "the landlord").split(" ")[0]} either pays ${formatUsd(claim.landlordShareCents)} back via PayPal or credits it on the tenant's next rent invoice.`
+                    : `On approval, ${formatUsd(claim.landlordShareCents)} is credited on the tenant's next rent invoice.`}
               </p>
             )}
           </>
@@ -417,7 +419,7 @@ function PayBack({
       <span className="text-stone-600">
         {tenantWantsPayout ? "You asked to be paid back right away via PayPal." : "You'll be credited on the next rent invoice."}
       </span>
-      <SubmitButton className="text-stone-700 underline hover:text-stone-900">
+      <SubmitButton className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 font-medium text-stone-800 shadow-sm hover:border-stone-500 hover:bg-stone-50 disabled:opacity-50">
         {tenantWantsPayout ? "A rent credit is fine" : "Ask to be paid back now instead"}
       </SubmitButton>
     </form>

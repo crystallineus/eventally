@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
+import { ASSISTANT } from "@/lib/persona";
 import { switchUser } from "@/app/actions";
 import { getCurrentUser, getDemoUsers } from "@/lib/session";
 
@@ -14,18 +15,21 @@ export async function Header() {
           <AuntTallyAvatar size={28} />
           EvenTally
         </Link>
-        {current && (
-          <nav className="flex gap-4 text-sm text-stone-600">
+        <nav className="flex gap-4 text-sm text-stone-600">
+          {current && (
             <Link href="/ledger" className="hover:text-stone-900">
               Ledger
             </Link>
-            {isLandlord && (
-              <Link href="/properties" className="hover:text-stone-900">
-                Properties
-              </Link>
-            )}
-          </nav>
-        )}
+          )}
+          {isLandlord && (
+            <Link href="/properties" className="hover:text-stone-900">
+              Properties
+            </Link>
+          )}
+          <Link href="/about" className="hover:text-stone-900">
+            About {ASSISTANT.name}
+          </Link>
+        </nav>
         <form action={switchUser} className="ml-auto flex items-center gap-2 text-sm">
           <span className="text-stone-500">Demo view as</span>
           {users.map((u) => (

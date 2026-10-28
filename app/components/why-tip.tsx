@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { ASSISTANT } from "@/lib/persona";
 
 // A small "?" button that reveals the agent's reason for a step in a popover.
 export function WhyTip({ why }: { why: string | string[] }) {
@@ -28,7 +29,7 @@ export function WhyTip({ why }: { why: string | string[] }) {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-controls={id}
-        aria-label="Why did the AI take this step?"
+        aria-label={`Why did ${ASSISTANT.name} take this step?`}
         className="grid size-4 place-items-center rounded-full border border-stone-300 text-[10px] leading-none font-semibold text-stone-500 hover:border-stone-500 hover:text-stone-800 aria-expanded:border-sky-500 aria-expanded:bg-sky-50 aria-expanded:text-sky-700"
       >
         ?

@@ -1,4 +1,5 @@
 import { formatUsd } from "@/lib/money";
+import { ASSISTANT } from "@/lib/persona";
 
 // Human-readable lines for the events log. Unknown types fall back to the raw type.
 export function describeEvent(type: string, data: unknown): string {
@@ -22,7 +23,7 @@ export function describeEvent(type: string, data: unknown): string {
     case "claim.amount_changed":
       return `${by} changed the claimed amount from ${formatUsd(Number(d.fromCents ?? 0))} to ${formatUsd(Number(d.toCents ?? 0))}. Any proposed split was cleared.`;
     case "claim.review_requested":
-      return `${by} asked the AI to review the claim again.`;
+      return `${by} asked ${ASSISTANT.name} to review the claim again.`;
     case "claim.payout_preference":
       return d.wantsPayout ? `${by} asked to be paid back right away via PayPal.` : `${by} is fine with a credit on the next rent invoice.`;
     case "claim.withdrawn":
@@ -42,9 +43,9 @@ export function describeEvent(type: string, data: unknown): string {
     case "payout.failed":
       return `The PayPal payout didn't go through (${d.reason}). The claim will be credited on the next rent invoice instead.`;
     case "agent.review_finished":
-      return "EvenTally AI finished its review.";
+      return `${ASSISTANT.name} finished her review.`;
     case REVIEW_SUMMARY:
-      return `AI review: ${d.passed} of ${d.total} checks passed · ${d.outcome}`;
+      return `${ASSISTANT.name}'s review: ${d.passed} of ${d.total} checks passed · ${d.outcome}`;
     default:
       if (type.startsWith("agent.")) return d.result?.summary ?? String(d.note ?? type);
       return type;
@@ -148,7 +149,7 @@ function outcomeOf(run: LogEvent[]): string {
 
 export type Proposal = {
   id: string;
-  by: string; // a person's name, or "EvenTally AI"
+  by: string; // a person's name, or the assistant's
   at: Date;
   landlordShareCents: number;
   tenantShareCents: number;
@@ -176,7 +177,7 @@ export function proposalHistory(newestFirst: LogEvent[]): Proposal[] {
     } else if (e.type === "agent.propose_split" && d.result) {
       proposals.push({
         id: e.id,
-        by: "EvenTally AI",
+        by: ASSISTANT.name,
         at: e.createdAt,
         landlordShareCents: Number(d.result.landlordShareCents),
         tenantShareCents: Number(d.result.tenantShareCents),

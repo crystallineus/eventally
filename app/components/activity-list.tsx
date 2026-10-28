@@ -1,5 +1,7 @@
 import { describeEvent } from "@/app/components/event-label";
 import { formatDateTime } from "@/lib/time";
+import { AuntTallyAvatar } from "@/app/components/aunt-tally";
+import { ASSISTANT } from "@/lib/persona";
 
 // An events log showing the latest few entries, with the rest behind "Show more".
 // Used for the lease activity log and each claim's history.
@@ -36,7 +38,14 @@ function ActivityItems({ events }: { events: ActivityEvent[] }) {
           <time className="shrink-0 font-mono text-xs leading-5 text-stone-500" dateTime={e.createdAt.toISOString()}>
             {formatDateTime(e.createdAt)}
           </time>
-          <span className="shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 capitalize text-stone-600">{e.actor}</span>
+          {e.actor === "agent" ? (
+            <span className="inline-flex shrink-0 items-center gap-1 text-xs leading-5 text-stone-600">
+              <AuntTallyAvatar size={18} />
+              {ASSISTANT.name}
+            </span>
+          ) : (
+            <span className="shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 capitalize text-stone-600">{e.actor}</span>
+          )}
           <span className="text-stone-800">{describeEvent(e.type, e.data)}</span>
         </li>
       ))}

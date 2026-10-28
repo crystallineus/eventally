@@ -20,6 +20,8 @@ import { EvidenceGallery } from "./evidence-gallery";
 import { ReviewRunner } from "./review-runner";
 import { SplitForm } from "./split-form";
 import { WithdrawButton } from "./withdraw-button";
+import { AuntTallyAvatar } from "@/app/components/aunt-tally";
+import { ASSISTANT } from "@/lib/persona";
 
 const KIND_LABELS = { receipt: "Receipt", before: "Before", after: "After" } as const;
 
@@ -96,13 +98,13 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
             {reviewsLeft > 0 ? (
               claim.status === "awaiting_approval" && (
                 <>
-                  <p className="mt-2">Ask the AI to look again; the current proposal moves to the history.</p>
+                  <p className="mt-2">Ask Aunt Tally to look again; the current proposal moves to the history.</p>
                   <ReviewAgainButton claimId={claim.id} reviewsLeft={reviewsLeft} />
                 </>
               )
             ) : (
               <p className="mt-2">
-                The AI has reviewed this claim {MAX_REVIEWS} times, which is the limit, so it won&apos;t check these changes. Before
+                Aunt Tally has reviewed this claim {MAX_REVIEWS} times, which is the limit, so she won&apos;t check these changes. Before
                 approving, look at the new evidence yourself; photos added since the review are marked &ldquo;New&rdquo; below.
               </p>
             )}
@@ -112,23 +114,24 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
 
       {claim.status === "needs_evidence" && (
         <section className="rounded-xl border border-amber-300 bg-amber-50 p-5">
-          <h2 className="font-semibold text-amber-900">
+          <h2 className="flex items-center gap-2 font-semibold text-amber-900">
+            {evidenceRequest && <AuntTallyAvatar size={26} />}
             {evidenceRequest
-              ? `EvenTally AI needs more evidence from the ${String((evidenceRequest.data as { result?: { from?: string } }).result?.from ?? "submitter")}`
+              ? `Aunt Tally needs more evidence from the ${String((evidenceRequest.data as { result?: { from?: string } }).result?.from ?? "submitter")}`
               : "Waiting for changes"}
           </h2>
           {evidenceRequest && <p className="mt-2 whitespace-pre-line text-amber-950">{describeEvent(evidenceRequest.type, evidenceRequest.data)}</p>}
           {reviewsLeft > 0 ? (
             <>
               <p className="mt-2 text-sm text-amber-800">
-                Make all your changes first (photos, amount), then ask the AI to review again. Can&apos;t provide something?
+                Make all your changes first (photos, amount), then ask Aunt Tally to review again. Can&apos;t provide something?
                 Either of you can propose a split under &ldquo;Who pays&rdquo; and the other side reviews it.
               </p>
               <ReviewAgainButton claimId={claim.id} reviewsLeft={reviewsLeft} />
             </>
           ) : (
             <p className="mt-2 text-sm text-amber-800">
-              The AI has reviewed this claim {MAX_REVIEWS} times, which is the limit. Propose a split under &ldquo;Who pays&rdquo;
+              Aunt Tally has reviewed this claim {MAX_REVIEWS} times, which is the limit. Propose a split under &ldquo;Who pays&rdquo;
               and the other side reviews it.
             </p>
           )}
@@ -157,7 +160,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           {claim.landlordShareCents != null && latestProposal && (
             <span className="text-xs text-stone-500">
               {latestProposal.actor === "agent"
-                ? "Proposed by EvenTally AI · both of you need to approve"
+                ? "Proposed by Aunt Tally (AI) · both of you need to approve"
                 : `Proposed by ${names.get(String((latestProposal.data as { by?: string }).by)) ?? (latestProposal.data as { by?: string }).by}`}
             </span>
           )}
@@ -280,8 +283,9 @@ function AiReview({
   return (
     <section className="rounded-xl border border-sky-200 bg-white p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-semibold">
-          AI review
+        <h2 className="flex items-center gap-2 font-semibold">
+          <AuntTallyAvatar size={30} />
+          {ASSISTANT.name}&apos;s review
           {reviewNumber > 0 && (
             <span className="ml-2 text-sm font-normal text-stone-500">
               Review {Math.min(reviewNumber, MAX_REVIEWS)} of {MAX_REVIEWS}
@@ -289,7 +293,7 @@ function AiReview({
             </span>
           )}
         </h2>
-        <span className="text-xs text-stone-500">EvenTally AI · checks are hints, not verdicts</span>
+        <span className="text-xs text-stone-500">{ASSISTANT.disclosure} · her checks are hints, not verdicts</span>
       </div>
       {children && <div className="mt-3">{children}</div>}
       {reviewing && (

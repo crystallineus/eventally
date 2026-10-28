@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AuntTallyAvatar } from "@/app/components/aunt-tally";
 import { switchUser } from "@/app/actions";
 import { getCurrentUser, getDemoUsers } from "@/lib/session";
 
@@ -9,7 +10,8 @@ export async function Header() {
   return (
     <header className="border-b border-stone-200 bg-white">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
-        <Link href="/" className="text-lg font-semibold tracking-tight text-stone-900">
+        <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-stone-900">
+          <AuntTallyAvatar size={28} />
           EvenTally
         </Link>
         {current && (

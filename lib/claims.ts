@@ -3,6 +3,7 @@ import { db, schema } from "@/lib/db";
 import { formatUsd, splitByShare, type Cents } from "@/lib/money";
 import type { User } from "@/lib/session";
 import { putEvidence, type EvidenceKind } from "@/lib/storage";
+import { ASSISTANT } from "@/lib/persona";
 
 type Claim = typeof schema.claims.$inferSelect;
 type Lease = typeof schema.leases.$inferSelect;
@@ -123,7 +124,7 @@ export async function removeEvidence(user: User, evidenceId: string) {
   if (!item || !found) throw new Error("Photo not found");
   if (item.uploadedBy !== user.id) throw new Error("Only the person who uploaded a photo can remove it");
   if (!isOpen(found.claim)) throw new Error("This claim is closed");
-  if (found.claim.reviewStartedAt) throw new Error("The AI review is running. Try again when it finishes.");
+  if (found.claim.reviewStartedAt) throw new Error(`${ASSISTANT.name} is still reviewing. Try again when she finishes.`);
 
   await db().transaction(async (tx) => {
     if (item.kind === "receipt") {
@@ -174,7 +175,7 @@ export async function requestReview(user: User, claimId: string) {
   if (!found) throw new Error("Claim not found");
   const from = found.claim.status;
   if (from !== "needs_evidence" && from !== "awaiting_approval") throw new Error("This claim can't be reviewed again now");
-  if ((await reviewCount(claimId)) >= MAX_REVIEWS) throw new Error(`The AI has already reviewed this claim ${MAX_REVIEWS} times`);
+  if ((await reviewCount(claimId)) >= MAX_REVIEWS) throw new Error(`${ASSISTANT.name} has already reviewed this claim ${MAX_REVIEWS} times`);
 
   await db().transaction(async (tx) => {
     const [updated] = await tx
@@ -301,7 +302,7 @@ export async function updateClaimAmount(user: User, claimId: string, amountCents
       .for("update", { of: schema.claims });
     if (!row || row.claim.submittedBy !== user.id) throw new Error("Only the person who submitted a claim can change its amount");
     if (!isOpen(row.claim)) throw new Error("This claim is closed");
-    if (row.claim.reviewStartedAt) throw new Error("The AI review is running. Try again when it finishes.");
+    if (row.claim.reviewStartedAt) throw new Error(`${ASSISTANT.name} is still reviewing. Try again when she finishes.`);
     if (row.claim.amountCents === amountCents) return;
 
     await tx

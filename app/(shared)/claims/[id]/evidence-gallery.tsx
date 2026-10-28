@@ -56,7 +56,7 @@ export function EvidenceGallery({ claimId, photos }: { claimId: string; photos: 
                       </button>
                       {p.isNew && (
                         <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950 shadow">
-                          New since AI review
+                          New since review
                         </span>
                       )}
                       {p.removable && (

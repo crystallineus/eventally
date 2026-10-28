@@ -283,8 +283,7 @@ function AiReview({
   return (
     <section className="rounded-xl border border-sky-200 bg-white p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="flex items-center gap-2 font-semibold">
-          <AuntTallyAvatar size={30} />
+        <h2 className="font-semibold">
           {ASSISTANT.name}&apos;s review
           {reviewNumber > 0 && (
             <span className="ml-2 text-sm font-normal text-stone-500">

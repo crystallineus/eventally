@@ -1,6 +1,7 @@
 import { ASSISTANT } from "@/lib/persona";
 
-// Aunt Tally's avatar: an elephant auntie's head with curly brown hair and red glasses.
+// Aunt Tally's avatar: an elephant auntie's head (fan-shaped ears, a domed head that narrows into a
+// curling trunk) with cream curly hair and red glasses.
 // Flat layered shapes in the style of Infinite Shelf's Sherman.
 // Decorative next to her name; pass `label` when it stands alone.
 export function AuntTallyAvatar({ size = 28, label }: { size?: number; label?: boolean }) {
@@ -15,51 +16,51 @@ export function AuntTallyAvatar({ size = 28, label }: { size?: number; label?: b
       aria-hidden={label ? undefined : true}
       className="shrink-0"
     >
-      {/* ears, back to front tones */}
-      <ellipse cx="19" cy="50" rx="18" ry="22" fill="#7d838c"/>
-      <ellipse cx="81" cy="50" rx="18" ry="22" fill="#7d838c"/>
-      <ellipse cx="20" cy="50" rx="14.5" ry="18.5" fill="#949aa3"/>
-      <ellipse cx="80" cy="50" rx="14.5" ry="18.5" fill="#949aa3"/>
-      <ellipse cx="21" cy="51" rx="10" ry="13.5" fill="#e6b8b5" opacity="0.55"/>
-      <ellipse cx="79" cy="51" rx="10" ry="13.5" fill="#e6b8b5" opacity="0.55"/>
-      {/* head, layered */}
-      <ellipse cx="50" cy="50" rx="26" ry="27" fill="#8a9099"/>
-      <ellipse cx="50" cy="48" rx="23.5" ry="24" fill="#a1a7b0"/>
-      <ellipse cx="50" cy="44" rx="16" ry="13" fill="#b4bac2"/>
-      {/* trunk */}
-      <path d="M43 60 Q41.5 75 43.5 84 Q46 92 52.5 91 Q58 90 57 84.5 Q54.5 85.5 52.8 85 Q50 83.5 50.5 75 Q51 66 57 60Z" fill="#a1a7b0"/>
-      <path d="M45 62 Q44 74 46 83" stroke="#b4bac2" strokeWidth="2.4" opacity="0.6" strokeLinecap="round"/>
-      <g stroke="#7d838c" strokeWidth="1.1" opacity="0.5" strokeLinecap="round">
-        <path d="M44.5 68 Q48 69.5 51.5 68"/><path d="M44.3 73.5 Q47.5 75 50.8 73.5"/><path d="M44.8 79 Q47.6 80.4 50.6 79.3"/>
+      {/* fan-shaped ears spreading out and down from the sides of the head */}
+      <path d="M32 34 C20 24 3 30 3 50 C3 66 14 78 30 70 C33 60 34 46 32 34Z" fill="#7c828b"/>
+      <path d="M68 34 C80 24 97 30 97 50 C97 66 86 78 70 70 C67 60 66 46 68 34Z" fill="#7c828b"/>
+      <path d="M31 38 C21 31 8 36 8 51 C8 63 16 72 29 66 C31 58 32 47 31 38Z" fill="#949aa3"/>
+      <path d="M69 38 C79 31 92 36 92 51 C92 63 84 72 71 66 C69 58 68 47 69 38Z" fill="#949aa3"/>
+      <path d="M29 43 C22 39 13 42 13 52 C13 60 19 66 27 62 C29 56 30 49 29 43Z" fill="#e3b3b0" opacity="0.6"/>
+      <path d="M71 43 C78 39 87 42 87 52 C87 60 81 66 73 62 C71 56 70 49 71 43Z" fill="#e3b3b0" opacity="0.6"/>
+      {/* domed head that narrows into the trunk */}
+      <path d="M50 22 C65 22 75 32 75 46 C75 56 69 63 60 65 L40 65 C31 63 25 56 25 46 C25 32 35 22 50 22Z" fill="#8f959e"/>
+      <path d="M50 24.5 C62 24.5 71 33 71 45 C71 54 66 60 58 62 L42 62 C34 60 29 54 29 45 C29 33 38 24.5 50 24.5Z" fill="#a3a9b1"/>
+      <ellipse cx="50" cy="36" rx="13" ry="9" fill="#b7bcc4"/>
+      {/* trunk: wide at the base, tapering, tip curling up */}
+      <path d="M40.5 58 C40 70 41 80 45 87 C48 92 55 92 58 88 C59.5 85.5 58.5 82.5 56 82.5 C54.8 82.5 54.4 84 53.4 84.4 C51.6 85 50.6 82 50.6 78 C50.6 70 54 63 59.5 58Z" fill="#a3a9b1"/>
+      <path d="M43 61 C42.6 70 43.5 78 46.5 84.5" stroke="#b7bcc4" strokeWidth="2.6" opacity="0.7" strokeLinecap="round"/>
+      <g stroke="#7c828b" strokeWidth="1.1" opacity="0.55" strokeLinecap="round">
+        <path d="M41.5 66 Q46.5 68 52 65.8"/><path d="M41.8 71 Q46 73 51.2 71"/><path d="M42.6 76 Q46.4 77.8 50.8 76"/><path d="M44 81 Q47 82.6 50.8 81.2"/>
       </g>
-      {/* curly hair: layered curls like Sherman's canopy */}
-      <g fill="#6b3f26">
-        <circle cx="30" cy="27" r="7"/><circle cx="39" cy="21" r="8"/><circle cx="50" cy="19" r="8.5"/>
-        <circle cx="61" cy="21" r="8"/><circle cx="70" cy="27" r="7"/><circle cx="34" cy="31" r="6"/><circle cx="66" cy="31" r="6"/>
+      {/* corners of a smile beside the trunk base */}
+      <path d="M35 57 Q37.5 60.5 41 60" stroke="#5f646c" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M59 60 Q62.5 60.5 65 57" stroke="#5f646c" strokeWidth="1.5" strokeLinecap="round"/>
+      <ellipse cx="33" cy="53" rx="3.6" ry="2.3" fill="#e6a3a0" opacity="0.6"/>
+      <ellipse cx="67" cy="53" rx="3.6" ry="2.3" fill="#e6a3a0" opacity="0.6"/>
+      {/* cream curly hair on the dome, layered */}
+      <g fill="#e2d6bc">
+        <circle cx="36" cy="28" r="5.5"/><circle cx="43" cy="23" r="6.5"/><circle cx="50" cy="21.5" r="7"/>
+        <circle cx="57" cy="23" r="6.5"/><circle cx="64" cy="28" r="5.5"/>
       </g>
-      <g fill="#8b5a3c">
-        <circle cx="32" cy="25" r="5.5"/><circle cx="40.5" cy="19.5" r="6.5"/><circle cx="50" cy="17.5" r="7"/>
-        <circle cx="59.5" cy="19.5" r="6.5"/><circle cx="68" cy="25" r="5.5"/><circle cx="45" cy="26" r="5.5"/><circle cx="55" cy="26" r="5.5"/>
+      <g fill="#efe6d2">
+        <circle cx="37.5" cy="26.5" r="4.3"/><circle cx="44" cy="21.8" r="5.2"/><circle cx="50" cy="20.3" r="5.6"/>
+        <circle cx="56" cy="21.8" r="5.2"/><circle cx="62.5" cy="26.5" r="4.3"/><circle cx="47" cy="27" r="4"/><circle cx="53" cy="27" r="4"/>
       </g>
-      <g fill="#a8714d">
-        <circle cx="41" cy="17.5" r="3.4"/><circle cx="50" cy="15.5" r="3.8"/><circle cx="59" cy="17.5" r="3.4"/>
-        <circle cx="33" cy="23.5" r="2.8"/><circle cx="67" cy="23.5" r="2.8"/><circle cx="46" cy="24" r="2.6"/><circle cx="55" cy="24" r="2.6"/>
+      <g fill="#faf5ea">
+        <circle cx="44.5" cy="20.3" r="2.6"/><circle cx="50" cy="18.8" r="3"/><circle cx="55.5" cy="20.3" r="2.6"/>
+        <circle cx="38.3" cy="25.2" r="2.1"/><circle cx="61.7" cy="25.2" r="2.1"/>
       </g>
-      {/* cheeks and smile on either side of the trunk */}
-      <ellipse cx="33" cy="60" rx="4" ry="2.6" fill="#e6a3a0" opacity="0.6"/>
-      <ellipse cx="67" cy="60" rx="4" ry="2.6" fill="#e6a3a0" opacity="0.6"/>
-      <path d="M38 62.5 Q40 65 43 64.6" stroke="#5f646c" strokeWidth="1.5" strokeLinecap="round"/>
-      <path d="M57 64.6 Q60 65 62 62.5" stroke="#5f646c" strokeWidth="1.5" strokeLinecap="round"/>
-      {/* eyes and red glasses */}
-      <ellipse cx="38" cy="50" rx="2.3" ry="2.6" fill="#3b3f46"/>
-      <ellipse cx="62" cy="50" rx="2.3" ry="2.6" fill="#3b3f46"/>
-      <circle cx="38.8" cy="49" r="0.7" fill="#ffffff"/>
-      <circle cx="62.8" cy="49" r="0.7" fill="#ffffff"/>
-      <rect x="29" y="44" width="18" height="12" rx="5" stroke="#d23f3f" strokeWidth="2.4" fill="rgba(255,255,255,0.15)"/>
-      <rect x="53" y="44" width="18" height="12" rx="5" stroke="#d23f3f" strokeWidth="2.4" fill="rgba(255,255,255,0.15)"/>
-      <path d="M47 49 Q50 47.5 53 49" stroke="#d23f3f" strokeWidth="2.2"/>
-      <path d="M29 48 L24 46.5" stroke="#d23f3f" strokeWidth="2.2" strokeLinecap="round"/>
-      <path d="M71 48 L76 46.5" stroke="#d23f3f" strokeWidth="2.2" strokeLinecap="round"/>
+      {/* small eyes set wide, behind red glasses */}
+      <ellipse cx="38.5" cy="46.5" rx="2" ry="2.3" fill="#3b3f46"/>
+      <ellipse cx="61.5" cy="46.5" rx="2" ry="2.3" fill="#3b3f46"/>
+      <circle cx="39.2" cy="45.6" r="0.6" fill="#ffffff"/>
+      <circle cx="62.2" cy="45.6" r="0.6" fill="#ffffff"/>
+      <rect x="30.5" y="41" width="16" height="11" rx="5" stroke="#d23f3f" strokeWidth="2.3" fill="rgba(255,255,255,0.15)"/>
+      <rect x="53.5" y="41" width="16" height="11" rx="5" stroke="#d23f3f" strokeWidth="2.3" fill="rgba(255,255,255,0.15)"/>
+      <path d="M46.5 45.5 Q50 44 53.5 45.5" stroke="#d23f3f" strokeWidth="2.1"/>
+      <path d="M30.5 45 L26.5 43.8" stroke="#d23f3f" strokeWidth="2.1" strokeLinecap="round"/>
+      <path d="M69.5 45 L73.5 43.8" stroke="#d23f3f" strokeWidth="2.1" strokeLinecap="round"/>
     </svg>
   );
 }

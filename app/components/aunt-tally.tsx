@@ -1,7 +1,7 @@
 import { ASSISTANT } from "@/lib/persona";
 
 // Aunt Tally's avatar: an elephant auntie's head (fan-shaped ears, a domed head that narrows into a
-// curling trunk) with cream curly hair and red glasses.
+// curling trunk) with full cream curls, two long ringlets between cheeks and ears, and red glasses.
 // Flat layered shapes in the style of Infinite Shelf's Sherman.
 // Decorative next to her name; pass `label` when it stands alone.
 export function AuntTallyAvatar({ size = 28, label }: { size?: number; label?: boolean }) {
@@ -38,19 +38,116 @@ export function AuntTallyAvatar({ size = 28, label }: { size?: number; label?: b
       <path d="M59 60 Q62.5 60.5 65 57" stroke="#5f646c" strokeWidth="1.5" strokeLinecap="round"/>
       <ellipse cx="33" cy="53" rx="3.6" ry="2.3" fill="#e6a3a0" opacity="0.6"/>
       <ellipse cx="67" cy="53" rx="3.6" ry="2.3" fill="#e6a3a0" opacity="0.6"/>
-      {/* cream curly hair on the dome, layered */}
-      <g fill="#e2d6bc">
-        <circle cx="36" cy="28" r="5.5"/><circle cx="43" cy="23" r="6.5"/><circle cx="50" cy="21.5" r="7"/>
-        <circle cx="57" cy="23" r="6.5"/><circle cx="64" cy="28" r="5.5"/>
-      </g>
-      <g fill="#efe6d2">
-        <circle cx="37.5" cy="26.5" r="4.3"/><circle cx="44" cy="21.8" r="5.2"/><circle cx="50" cy="20.3" r="5.6"/>
-        <circle cx="56" cy="21.8" r="5.2"/><circle cx="62.5" cy="26.5" r="4.3"/><circle cx="47" cy="27" r="4"/><circle cx="53" cy="27" r="4"/>
-      </g>
-      <g fill="#faf5ea">
-        <circle cx="44.5" cy="20.3" r="2.6"/><circle cx="50" cy="18.8" r="3"/><circle cx="55.5" cy="20.3" r="2.6"/>
-        <circle cx="38.3" cy="25.2" r="2.1"/><circle cx="61.7" cy="25.2" r="2.1"/>
-      </g>
+      {/* two long curly locks between the cheeks and the ears */}
+      <circle cx="27.0" cy="33.0" r="5.0" fill="#e2d6bc"/>
+      <circle cx="25.0" cy="38.6" r="4.9" fill="#e2d6bc"/>
+      <circle cx="27.6" cy="44.2" r="4.7" fill="#e2d6bc"/>
+      <circle cx="25.2" cy="49.6" r="4.5" fill="#e2d6bc"/>
+      <circle cx="27.5" cy="54.8" r="4.3" fill="#e2d6bc"/>
+      <circle cx="25.4" cy="59.8" r="4.1" fill="#e2d6bc"/>
+      <circle cx="27.4" cy="64.6" r="3.8" fill="#e2d6bc"/>
+      <circle cx="25.6" cy="69.2" r="3.5" fill="#e2d6bc"/>
+      <circle cx="27.2" cy="73.6" r="3.1" fill="#e2d6bc"/>
+      <circle cx="25.9" cy="77.6" r="2.6" fill="#e2d6bc"/>
+      <circle cx="26.8" cy="81.0" r="2.1" fill="#e2d6bc"/>
+      <circle cx="73.0" cy="33.0" r="5.0" fill="#e2d6bc"/>
+      <circle cx="75.0" cy="38.6" r="4.9" fill="#e2d6bc"/>
+      <circle cx="72.4" cy="44.2" r="4.7" fill="#e2d6bc"/>
+      <circle cx="74.8" cy="49.6" r="4.5" fill="#e2d6bc"/>
+      <circle cx="72.5" cy="54.8" r="4.3" fill="#e2d6bc"/>
+      <circle cx="74.6" cy="59.8" r="4.1" fill="#e2d6bc"/>
+      <circle cx="72.6" cy="64.6" r="3.8" fill="#e2d6bc"/>
+      <circle cx="74.4" cy="69.2" r="3.5" fill="#e2d6bc"/>
+      <circle cx="72.8" cy="73.6" r="3.1" fill="#e2d6bc"/>
+      <circle cx="74.1" cy="77.6" r="2.6" fill="#e2d6bc"/>
+      <circle cx="73.2" cy="81.0" r="2.1" fill="#e2d6bc"/>
+      <circle cx="26.2" cy="32.0" r="3.6" fill="#efe6d2"/>
+      <circle cx="24.3" cy="37.6" r="3.5" fill="#efe6d2"/>
+      <circle cx="26.9" cy="43.3" r="3.4" fill="#efe6d2"/>
+      <circle cx="24.5" cy="48.7" r="3.2" fill="#efe6d2"/>
+      <circle cx="26.9" cy="53.9" r="3.1" fill="#efe6d2"/>
+      <circle cx="24.8" cy="59.0" r="3.0" fill="#efe6d2"/>
+      <circle cx="26.8" cy="63.8" r="2.7" fill="#efe6d2"/>
+      <circle cx="25.1" cy="68.5" r="2.5" fill="#efe6d2"/>
+      <circle cx="26.7" cy="73.0" r="2.2" fill="#efe6d2"/>
+      <circle cx="25.5" cy="77.1" r="1.9" fill="#efe6d2"/>
+      <circle cx="26.5" cy="80.6" r="1.5" fill="#efe6d2"/>
+      <circle cx="72.2" cy="32.0" r="3.6" fill="#efe6d2"/>
+      <circle cx="74.3" cy="37.6" r="3.5" fill="#efe6d2"/>
+      <circle cx="71.7" cy="43.3" r="3.4" fill="#efe6d2"/>
+      <circle cx="74.1" cy="48.7" r="3.2" fill="#efe6d2"/>
+      <circle cx="71.9" cy="53.9" r="3.1" fill="#efe6d2"/>
+      <circle cx="74.0" cy="59.0" r="3.0" fill="#efe6d2"/>
+      <circle cx="72.0" cy="63.8" r="2.7" fill="#efe6d2"/>
+      <circle cx="73.9" cy="68.5" r="2.5" fill="#efe6d2"/>
+      <circle cx="72.3" cy="73.0" r="2.2" fill="#efe6d2"/>
+      <circle cx="73.7" cy="77.1" r="1.9" fill="#efe6d2"/>
+      <circle cx="72.9" cy="80.6" r="1.5" fill="#efe6d2"/>
+      <circle cx="25.5" cy="31.0" r="1.6" fill="#faf5ea"/>
+      <circle cx="23.5" cy="36.6" r="1.6" fill="#faf5ea"/>
+      <circle cx="26.2" cy="42.3" r="1.5" fill="#faf5ea"/>
+      <circle cx="23.8" cy="47.8" r="1.4" fill="#faf5ea"/>
+      <circle cx="26.2" cy="53.1" r="1.4" fill="#faf5ea"/>
+      <circle cx="24.2" cy="58.2" r="1.3" fill="#faf5ea"/>
+      <circle cx="26.3" cy="63.1" r="1.2" fill="#faf5ea"/>
+      <circle cx="24.6" cy="67.8" r="1.1" fill="#faf5ea"/>
+      <circle cx="26.3" cy="72.4" r="1.0" fill="#faf5ea"/>
+      <circle cx="25.1" cy="76.6" r="0.8" fill="#faf5ea"/>
+      <circle cx="26.2" cy="80.2" r="0.7" fill="#faf5ea"/>
+      <circle cx="71.5" cy="31.0" r="1.6" fill="#faf5ea"/>
+      <circle cx="73.5" cy="36.6" r="1.6" fill="#faf5ea"/>
+      <circle cx="71.0" cy="42.3" r="1.5" fill="#faf5ea"/>
+      <circle cx="73.5" cy="47.8" r="1.4" fill="#faf5ea"/>
+      <circle cx="71.2" cy="53.1" r="1.4" fill="#faf5ea"/>
+      <circle cx="73.4" cy="58.2" r="1.3" fill="#faf5ea"/>
+      <circle cx="71.5" cy="63.1" r="1.2" fill="#faf5ea"/>
+      <circle cx="73.4" cy="67.8" r="1.1" fill="#faf5ea"/>
+      <circle cx="71.9" cy="72.4" r="1.0" fill="#faf5ea"/>
+      <circle cx="73.3" cy="76.6" r="0.8" fill="#faf5ea"/>
+      <circle cx="72.6" cy="80.2" r="0.7" fill="#faf5ea"/>
+      {/* full cream curls on top */}
+      <circle cx="30.0" cy="30.0" r="6.0" fill="#e2d6bc"/>
+      <circle cx="35.0" cy="24.0" r="6.5" fill="#e2d6bc"/>
+      <circle cx="42.0" cy="19.5" r="7.0" fill="#e2d6bc"/>
+      <circle cx="50.0" cy="17.5" r="7.5" fill="#e2d6bc"/>
+      <circle cx="58.0" cy="19.5" r="7.0" fill="#e2d6bc"/>
+      <circle cx="65.0" cy="24.0" r="6.5" fill="#e2d6bc"/>
+      <circle cx="70.0" cy="30.0" r="6.0" fill="#e2d6bc"/>
+      <circle cx="38.0" cy="29.0" r="5.5" fill="#e2d6bc"/>
+      <circle cx="45.0" cy="26.0" r="5.5" fill="#e2d6bc"/>
+      <circle cx="50.0" cy="25.0" r="5.5" fill="#e2d6bc"/>
+      <circle cx="55.0" cy="26.0" r="5.5" fill="#e2d6bc"/>
+      <circle cx="62.0" cy="29.0" r="5.5" fill="#e2d6bc"/>
+      <circle cx="33.0" cy="34.5" r="4.5" fill="#e2d6bc"/>
+      <circle cx="67.0" cy="34.5" r="4.5" fill="#e2d6bc"/>
+      <circle cx="29.1" cy="28.8" r="4.3" fill="#efe6d2"/>
+      <circle cx="34.0" cy="22.7" r="4.7" fill="#efe6d2"/>
+      <circle cx="41.0" cy="18.1" r="5.0" fill="#efe6d2"/>
+      <circle cx="48.9" cy="16.0" r="5.4" fill="#efe6d2"/>
+      <circle cx="57.0" cy="18.1" r="5.0" fill="#efe6d2"/>
+      <circle cx="64.0" cy="22.7" r="4.7" fill="#efe6d2"/>
+      <circle cx="69.1" cy="28.8" r="4.3" fill="#efe6d2"/>
+      <circle cx="37.2" cy="27.9" r="4.0" fill="#efe6d2"/>
+      <circle cx="44.2" cy="24.9" r="4.0" fill="#efe6d2"/>
+      <circle cx="49.2" cy="23.9" r="4.0" fill="#efe6d2"/>
+      <circle cx="54.2" cy="24.9" r="4.0" fill="#efe6d2"/>
+      <circle cx="61.2" cy="27.9" r="4.0" fill="#efe6d2"/>
+      <circle cx="32.3" cy="33.6" r="3.2" fill="#efe6d2"/>
+      <circle cx="66.3" cy="33.6" r="3.2" fill="#efe6d2"/>
+      <circle cx="28.2" cy="27.6" r="1.9" fill="#faf5ea"/>
+      <circle cx="33.0" cy="21.4" r="2.1" fill="#faf5ea"/>
+      <circle cx="39.9" cy="16.7" r="2.2" fill="#faf5ea"/>
+      <circle cx="47.8" cy="14.5" r="2.4" fill="#faf5ea"/>
+      <circle cx="55.9" cy="16.7" r="2.2" fill="#faf5ea"/>
+      <circle cx="63.0" cy="21.4" r="2.1" fill="#faf5ea"/>
+      <circle cx="68.2" cy="27.6" r="1.9" fill="#faf5ea"/>
+      <circle cx="36.4" cy="26.8" r="1.8" fill="#faf5ea"/>
+      <circle cx="43.4" cy="23.8" r="1.8" fill="#faf5ea"/>
+      <circle cx="48.4" cy="22.8" r="1.8" fill="#faf5ea"/>
+      <circle cx="53.4" cy="23.8" r="1.8" fill="#faf5ea"/>
+      <circle cx="60.4" cy="26.8" r="1.8" fill="#faf5ea"/>
+      <circle cx="31.6" cy="32.7" r="1.4" fill="#faf5ea"/>
+      <circle cx="65.7" cy="32.7" r="1.4" fill="#faf5ea"/>
       {/* small eyes set wide, behind red glasses */}
       <ellipse cx="38.5" cy="46.5" rx="2" ry="2.3" fill="#3b3f46"/>
       <ellipse cx="61.5" cy="46.5" rx="2" ry="2.3" fill="#3b3f46"/>

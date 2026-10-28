@@ -5,7 +5,8 @@ Every business, phone number and license number here is made up; each receipt is
 
 Usage (needs Pillow and the DejaVu fonts):
     python3 -m venv /tmp/venv && /tmp/venv/bin/pip install pillow
-    /tmp/venv/bin/python scripts/demo_assets.py demo-assets
+    /tmp/venv/bin/python scripts/demo_assets.py demo-assets              # everything
+    /tmp/venv/bin/python scripts/demo_assets.py demo-assets range-hood-receipt
 """
 
 import random
@@ -95,6 +96,72 @@ def plumbing_receipt(out: Path):
     d.text((60, 1220), "Thank you for choosing Maple Leaf Plumbing & Drain!", font=s, fill=(70, 70, 70))
     center(d, W, H - 70, "SAMPLE – FICTIONAL DEMO DATA – NOT A REAL BUSINESS", font(SANSB, 22), fill=STAMP)
     img.rotate(-1.2, expand=True, fillcolor=(205, 205, 200)).save(out / "plumbing-receipt.jpg", quality=88)
+
+
+def range_hood_receipt(out: Path):
+    """Appliance repair: $95 service call + $55 labor + $31.48 parts + $2.95 tax on parts = $184.43."""
+    W, H = 1100, 1500
+    img = Image.new("RGB", (W, H), (253, 252, 249))
+    d = ImageDraw.Draw(img)
+    s, sb, m = font(SANS, 24), font(SANSB, 24), font(MONO, 26)
+
+    d.rectangle((0, 0, W, 150), fill=(122, 54, 32))
+    d.text((60, 35), "ALDER APPLIANCE CARE", fill="white", font=font(SANSB, 44))
+    d.text((60, 95), "880 Alder Ave, San Jose, CA 95126  ·  (408) 555-0163", fill=(245, 225, 215), font=s)
+    d.text((60, 180), "BHGS Reg. #A00000 (appliance repair)", fill=(80, 80, 80), font=s)
+    right(d, W - 60, 180, "SERVICE INVOICE", font(SANSB, 36))
+
+    y = 250
+    for k, v in [("Invoice #", "AC-2291"), ("Service date", "10/22/2026"), ("Invoice date", "10/22/2026"), ("Technician", "R. Nguyen")]:
+        d.text((660, y), k, fill=(90, 90, 90), font=s)
+        right(d, W - 60, y, v, sb)
+        y += 38
+    d.text((60, 250), "BILL TO / SERVICE ADDRESS", fill=(90, 90, 90), font=s)
+    for i, line in enumerate(["Maya Chen", "418 Maple Street, Apt 2B", "San Jose, CA 95112"]):
+        d.text((60, 290 + i * 36), line, fill=INK, font=font(SANS, 26))
+
+    y = 440
+    d.text((60, y), "Appliance: range hood (over-the-range)", fill=INK, font=sb)
+    d.text((60, y + 36), "Complaint: hood light does not turn on; fan works.", fill=INK, font=s)
+    d.text((60, y + 70), "Found: burnt light socket, both bulbs failed. Replaced socket and bulbs; tested OK.", fill=INK, font=s)
+
+    y = 590
+    d.rectangle((60, y, W - 60, y + 50), fill=(244, 233, 227))
+    d.text((80, y + 12), "DESCRIPTION", font=sb, fill=INK)
+    right(d, 700, y + 12, "QTY", sb)
+    right(d, 850, y + 12, "RATE", sb)
+    right(d, W - 80, y + 12, "AMOUNT", sb)
+    y += 70
+    for desc, qty, rate, amount in [
+        ("Service call / diagnosis", "1", "95.00", "95.00"),
+        ("Labor (hours)", "0.5", "110.00", "55.00"),
+        ("Range hood light socket assembly", "1", "18.50", "18.50"),
+        ("LED appliance bulb, 40W equiv.", "2", "6.49", "12.98"),
+    ]:
+        d.text((80, y), desc, font=font(SANS, 25), fill=INK)
+        right(d, 700, y, qty, m)
+        right(d, 850, y, rate, m)
+        right(d, W - 80, y, amount, m)
+        y += 46
+
+    y += 10
+    d.line((600, y, W - 60, y), fill=(150, 150, 150), width=2)
+    y += 20
+    for k, v, bold in [("Service & labor", "150.00", False), ("Parts", "31.48", False), ("Subtotal", "181.48", False),
+                       ("Sales tax 9.375% (parts)", "2.95", False), ("TOTAL", "$184.43", True)]:
+        d.text((620, y), k, font=font(SANSB, 32) if bold else s, fill=INK)
+        right(d, W - 80, y, v, font(MONOB, 32) if bold else m)
+        y += 48 if bold else 40
+
+    y += 10
+    d.rounded_rectangle((540, y, W - 60, y + 56), radius=8, outline=(30, 120, 60), width=3)
+    paid = "PAID  ·  VISA ****1249  ·  10/22/2026"
+    d.text(((540 + W - 60) / 2 - d.textlength(paid, font=sb) / 2, y + 14), paid, font=sb, fill=(30, 120, 60))
+
+    d.text((60, 1250), "Warranty: 90 days on parts and labor for this repair.", font=s, fill=(70, 70, 70))
+    d.text((60, 1290), "Thank you for choosing Alder Appliance Care!", font=s, fill=(70, 70, 70))
+    center(d, W, H - 70, "SAMPLE – FICTIONAL DEMO DATA – NOT A REAL BUSINESS", font(SANSB, 22), fill=STAMP)
+    img.rotate(0.8, expand=True, fillcolor=(205, 205, 200)).save(out / "range-hood-receipt.jpg", quality=88)
 
 
 def hardware_receipt(out: Path):
@@ -199,16 +266,25 @@ def screen_photo(out: Path, name: str, torn: bool):
     im.save(out / name, quality=85)
 
 
+ASSETS = {
+    "plumbing-receipt": plumbing_receipt,
+    "hardware-receipt": hardware_receipt,
+    "range-hood-receipt": range_hood_receipt,
+    "sink-before": lambda out: sink_photo(out, "sink-before.jpg", leaking=True),
+    "sink-after": lambda out: sink_photo(out, "sink-after.jpg", leaking=False),
+    "screen-before": lambda out: screen_photo(out, "screen-before.jpg", torn=True),
+    "screen-after": lambda out: screen_photo(out, "screen-after.jpg", torn=False),
+}
+
+
 def main():
+    """python scripts/demo_assets.py [out_dir] [asset ...] - all assets when none are named."""
     out = Path(sys.argv[1] if len(sys.argv) > 1 else "demo-assets")
+    names = sys.argv[2:] or list(ASSETS)
     out.mkdir(parents=True, exist_ok=True)
-    plumbing_receipt(out)
-    hardware_receipt(out)
-    sink_photo(out, "sink-before.jpg", leaking=True)
-    sink_photo(out, "sink-after.jpg", leaking=False)
-    screen_photo(out, "screen-before.jpg", torn=True)
-    screen_photo(out, "screen-after.jpg", torn=False)
-    print(f"Wrote 6 images to {out}/")
+    for name in names:
+        ASSETS[name](out)
+    print(f"Wrote {', '.join(names)} to {out}/")
 
 
 if __name__ == "__main__":

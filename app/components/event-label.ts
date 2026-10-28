@@ -23,6 +23,8 @@ export function describeEvent(type: string, data: unknown): string {
       return `${by} changed the claimed amount from ${formatUsd(Number(d.fromCents ?? 0))} to ${formatUsd(Number(d.toCents ?? 0))}. Any proposed split was cleared.`;
     case "claim.review_requested":
       return `${by} asked the AI to review the claim again.`;
+    case "claim.payout_preference":
+      return d.wantsPayout ? `${by} asked to be paid back right away via PayPal.` : `${by} is fine with a credit on the next rent invoice.`;
     case "claim.withdrawn":
       return `${by} withdrew the claim.`;
     case "invoice.created":
@@ -33,6 +35,12 @@ export function describeEvent(type: string, data: unknown): string {
       return "PayPal didn't accept the invoice; it's saved as a draft.";
     case "invoice.paid":
       return String(d.summary ?? "Invoice paid.");
+    case "payout.started":
+      return `${by} started paying ${formatUsd(Number(d.amountCents ?? 0))} back through PayPal.`;
+    case "payout.succeeded":
+      return `PayPal sent ${formatUsd(Number(d.amountCents ?? 0))} to ${d.to}.`;
+    case "payout.failed":
+      return `The PayPal payout didn't go through (${d.reason}). The claim will be credited on the next rent invoice instead.`;
     case "agent.review_finished":
       return "EvenTally AI finished its review.";
     case REVIEW_SUMMARY:

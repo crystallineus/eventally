@@ -19,6 +19,7 @@ function claim(overrides: Partial<Claim>): Claim {
     landlordShareCents: 24000,
     tenantShareCents: 0,
     splitRationale: null,
+    tenantWantsPayout: false,
     reviewStartedAt: null,
     landlordApprovedAt: new Date(),
     tenantApprovedAt: new Date(),

@@ -1,15 +1,19 @@
+import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { formatDateTime } from "@/lib/time";
 import { notFound } from "next/navigation";
+import { ActivityList } from "@/app/components/activity-list";
 import { ClaimStatus } from "@/app/components/claim-status";
 import { SubmitButton } from "@/app/components/submit-button";
 import { condenseReviews, describeEvent, groupSteps, proposalHistory, type Proposal } from "@/app/components/event-label";
 import { WhyTip } from "@/app/components/why-tip";
 import { getClaimDetail, getClaimForUser, isOpen, MAX_REVIEWS } from "@/lib/claims";
+import { db, schema } from "@/lib/db";
 import { formatUsd, parseUsd } from "@/lib/money";
 import { requireUser } from "@/lib/session";
-import { approve } from "../actions";
+import { approve, changePayoutPreference } from "../actions";
 import { AddEvidenceForm } from "./add-evidence-form";
+import { PayBackButton, PayoutWatcher } from "./pay-back";
 import { EditAmount } from "./edit-amount";
 import { ReviewAgainButton } from "./review-again";
 import { EvidenceGallery } from "./evidence-gallery";
@@ -25,7 +29,10 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
   const found = await getClaimForUser(id, user.id);
   if (!found) notFound();
   const { claim, lease, role } = found;
-  const { evidence, events, names } = await getClaimDetail(claim.id);
+  const [{ evidence, events, names }, [payout]] = await Promise.all([
+    getClaimDetail(claim.id),
+    db().select().from(schema.payouts).where(eq(schema.payouts.claimId, claim.id)),
+  ]);
 
   const submitter = names.get(claim.submittedBy) ?? "Unknown";
   const tenantPaid = claim.submittedBy !== lease.landlordId;
@@ -164,14 +171,36 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
               <Share label="Tenant pays" cents={claim.tenantShareCents ?? 0} approvedAt={claim.tenantApprovedAt} />
             </dl>
             {claim.splitRationale && <p className="mt-3 rounded-lg bg-stone-50 p-3 text-sm text-stone-700">{claim.splitRationale}</p>}
-            <p className="mt-3 text-sm text-stone-600">
-              {tenantPaid
-                ? `On approval, ${formatUsd(claim.landlordShareCents)} is credited on the tenant's next rent invoice.`
-                : `On approval, ${formatUsd(claim.tenantShareCents ?? 0)} is added to the tenant's next rent invoice.`}
-            </p>
+            {claim.status !== "paid_out" && (
+              <p className="mt-3 text-sm text-stone-600">
+                {!tenantPaid
+                  ? `On approval, ${formatUsd(claim.tenantShareCents ?? 0)} is added to the tenant's next rent invoice.`
+                  : claim.tenantWantsPayout
+                    ? `On approval, ${(names.get(lease.landlordId) ?? "the landlord").split(" ")[0]} either pays ${formatUsd(claim.landlordShareCents)} back via PayPal or credits it on the tenant's next rent invoice.`
+                    : `On approval, ${formatUsd(claim.landlordShareCents)} is credited on the tenant's next rent invoice.`}
+              </p>
+            )}
           </>
         )}
+        <PayBack
+          claimId={claim.id}
+          status={claim.status}
+          canPayNow={tenantPaid && (claim.landlordShareCents ?? 0) > 0 && payout?.status !== "failed"}
+          role={role}
+          amountCents={claim.landlordShareCents ?? 0}
+          tenantName={names.get(lease.tenantId ?? "") ?? "the tenant"}
+          landlordName={names.get(lease.landlordId) ?? "The landlord"}
+          payout={payout}
+          tenantWantsPayout={claim.tenantWantsPayout}
+          canChangePreference={role === "tenant" && claim.submittedBy === user.id && open}
+        />
 
+        {claim.status === "awaiting_approval" && !myApproval && role === "landlord" && tenantPaid && claim.tenantWantsPayout && (
+          <p className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-900">
+            {(names.get(lease.tenantId ?? "") ?? "The tenant").split(" ")[0]} asked to be paid back right away via PayPal. After you
+            approve, you choose: pay it back now, or credit it on the next rent invoice. {PAYOUT_FEE_NOTE}
+          </p>
+        )}
         {claim.status === "awaiting_approval" && !myApproval && (
           <form action={approve} className="mt-4">
             <input type="hidden" name="claimId" value={claim.id} />
@@ -190,17 +219,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
 
       <section>
         <h2 className="mb-3 font-semibold">Claim history</h2>
-        <ol className="space-y-2 text-sm">
-          {condenseReviews(events).map((e) => (
-            <li key={e.id} className="flex gap-3 rounded-lg bg-white px-4 py-2 ring-1 ring-stone-200">
-              <time className="shrink-0 font-mono text-xs leading-5 text-stone-500" dateTime={e.createdAt.toISOString()}>
-                {formatDateTime(e.createdAt)}
-              </time>
-              <span className="shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 capitalize text-stone-600">{e.actor}</span>
-              <span className="text-stone-800">{describeEvent(e.type, e.data)}</span>
-            </li>
-          ))}
-        </ol>
+        <ActivityList events={condenseReviews(events)} />
       </section>
 
       {open && claim.submittedBy === user.id && <WithdrawButton claimId={claim.id} />}
@@ -335,5 +354,100 @@ function EarlierProposals({ proposals }: { proposals: Proposal[] }) {
         ))}
       </ol>
     </details>
+  );
+}
+
+const PAYOUT_FEE_NOTE =
+  "Paying back via PayPal costs you a PayPal payout fee, shown in your PayPal activity. A credit on the rent invoice adds no extra fee.";
+
+function PayBack({
+  claimId,
+  status,
+  canPayNow,
+  role,
+  amountCents,
+  tenantName,
+  landlordName,
+  payout,
+  tenantWantsPayout,
+  canChangePreference,
+}: {
+  claimId: string;
+  status: string;
+  canPayNow: boolean;
+  role: "landlord" | "tenant";
+  amountCents: number;
+  tenantName: string;
+  landlordName: string;
+  payout: typeof schema.payouts.$inferSelect | undefined;
+  tenantWantsPayout: boolean;
+  canChangePreference: boolean;
+}) {
+  const firstName = (name: string) => name.split(" ")[0];
+  if (status === "paid_out" && payout) {
+    return payout.status === "succeeded" ? (
+      <div className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
+        <p>
+          ✓ {landlordName} paid {formatUsd(payout.amountCents)} back to {tenantName} via PayPal on {formatDateTime(payout.updatedAt)}. It
+          isn&apos;t added to a rent invoice.
+        </p>
+        <p className="mt-1 text-emerald-700">
+          {role === "tenant"
+            ? "It may take a few minutes to show up in your PayPal account."
+            : `The money left your PayPal account right away; it may take a few minutes to show up in ${firstName(tenantName)}'s.`}
+        </p>
+      </div>
+    ) : (
+      <p className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-800">
+        <PayoutWatcher claimId={claimId} />
+        PayPal is sending {formatUsd(payout.amountCents)} to {tenantName}… ({payout.paypalStatus ?? "starting"})
+      </p>
+    );
+  }
+  if (status === "invoiced" || status === "settled") {
+    return tenantWantsPayout ? (
+      <p className="mt-4 text-sm text-stone-600">
+        {firstName(tenantName)} asked to be paid back right away; {firstName(landlordName)} chose to credit it on the rent invoice instead.
+      </p>
+    ) : null;
+  }
+
+  const preference = canChangePreference ? (
+    <form action={changePayoutPreference} className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+      <input type="hidden" name="claimId" value={claimId} />
+      <input type="hidden" name="wantsPayout" value={String(!tenantWantsPayout)} />
+      <span className="text-stone-600">
+        {tenantWantsPayout ? "You asked to be paid back right away via PayPal." : "You'll be credited on the next rent invoice."}
+      </span>
+      <SubmitButton className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 font-medium text-stone-800 shadow-sm hover:border-stone-500 hover:bg-stone-50 disabled:opacity-50">
+        {tenantWantsPayout ? "A rent credit is fine" : "Ask to be paid back now instead"}
+      </SubmitButton>
+    </form>
+  ) : null;
+
+  if (status !== "approved") return preference;
+  if (payout?.status === "failed") {
+    return <p className="mt-4 text-sm text-stone-600">A PayPal payout didn&apos;t go through, so this will be credited on the next rent invoice.</p>;
+  }
+  if (!canPayNow) return preference;
+  return role === "landlord" ? (
+    <div className={`mt-4 rounded-lg border p-3 text-sm ${tenantWantsPayout ? "border-sky-300 bg-sky-50" : "border-stone-200"}`}>
+      {tenantWantsPayout && <p className="mb-1 font-medium text-sky-900">{firstName(tenantName)} asked to be paid back right away via PayPal.</p>}
+      <p className="text-stone-700">
+        {tenantWantsPayout
+          ? `You decide: pay ${formatUsd(amountCents)} back now, or leave it as a credit on the next rent invoice.`
+          : `Don't want ${firstName(tenantName)} to wait for next month? Pay ${formatUsd(amountCents)} back now instead of crediting the rent.`}
+      </p>
+      <p className="mt-1 text-stone-500">{PAYOUT_FEE_NOTE}</p>
+      <PayBackButton claimId={claimId} amount={formatUsd(amountCents)} tenantName={firstName(tenantName)} />
+    </div>
+  ) : (
+    <div className="mt-4 text-sm text-stone-600">
+      <p>
+        {tenantWantsPayout
+          ? `You asked to be paid back right away via PayPal. ${firstName(landlordName)} decides whether to pay it back now or credit it on next month's rent.`
+          : `${landlordName} can pay this back to your PayPal right away instead of crediting next month's rent.`}
+      </p>
+    </div>
   );
 }

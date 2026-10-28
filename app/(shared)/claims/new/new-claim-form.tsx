@@ -6,7 +6,11 @@ import { withResizedImages } from "@/app/components/resize-images";
 
 const input = "mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:border-stone-900 focus:outline-none";
 
-export function NewClaimForm({ leases, defaultLeaseId, today }: { leases: { id: string; name: string }[]; defaultLeaseId: string; today: string }) {
+type LeaseOption = { id: string; name: string; isTenant: boolean; landlordName: string };
+
+export function NewClaimForm({ leases, defaultLeaseId, today }: { leases: LeaseOption[]; defaultLeaseId: string; today: string }) {
+  const [leaseId, setLeaseId] = useState(defaultLeaseId);
+  const selected = leases.find((l) => l.id === leaseId) ?? leases[0];
   const [state, action, pending] = useActionState<FormState, FormData>(submitClaim, { error: null });
   const [resizeError, setResizeError] = useState<string | null>(null);
   const [preparing, startPreparing] = useTransition();
@@ -31,7 +35,7 @@ export function NewClaimForm({ leases, defaultLeaseId, today }: { leases: { id: 
     >
       {leases.length > 1 ? (
         <Label text="Property">
-          <select name="leaseId" defaultValue={defaultLeaseId} className={input}>
+          <select name="leaseId" value={leaseId} onChange={(e) => setLeaseId(e.target.value)} className={input}>
             {leases.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
@@ -63,6 +67,16 @@ export function NewClaimForm({ leases, defaultLeaseId, today }: { leases: { id: 
           <input name="amount" inputMode="decimal" placeholder="240.00" className={input} required />
         </Label>
       </div>
+
+      {selected.isTenant && (
+        <label className="flex items-start gap-2 rounded-lg bg-stone-50 p-3 text-sm text-stone-700">
+          <input type="checkbox" name="wantsPayout" className="mt-0.5" />
+          <span>
+            Pay me back right away via PayPal, if {selected.landlordName} agrees.
+            <span className="block text-stone-500">Otherwise your share is credited on the next rent invoice. You can change this later.</span>
+          </span>
+        </label>
+      )}
 
       <fieldset className="grid gap-4 sm:grid-cols-3">
         <legend className="mb-2 font-semibold">Photos</legend>

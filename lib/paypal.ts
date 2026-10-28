@@ -130,3 +130,34 @@ export async function verifyWebhook(headers: Headers, rawBody: string): Promise<
     throw err;
   }
 }
+
+// ---- Payouts (landlord pays a tenant back right away) ----------------------------------------
+// Note: Payouts amounts use `currency`, not Invoicing's `currency_code`.
+
+export type PayoutBatch = {
+  batch_header: { payout_batch_id: string; batch_status: string };
+  items?: { payout_item_id: string; transaction_status: string; errors?: { name?: string; message?: string } }[];
+};
+
+/**
+ * Send one payout. `senderBatchId` must be unique per payout: PayPal rejects a reused id,
+ * which is what stops a retry from paying twice.
+ */
+export function createPayout(input: { senderBatchId: string; receiverEmail: string; amountCents: Cents; subject: string; note: string }) {
+  return call<PayoutBatch>("POST", "/v1/payments/payouts", {
+    sender_batch_header: { sender_batch_id: input.senderBatchId, email_subject: input.subject, email_message: input.note },
+    items: [
+      {
+        recipient_type: "EMAIL",
+        receiver: input.receiverEmail,
+        amount: { value: toApiValue(input.amountCents), currency: "USD" },
+        note: input.note,
+        sender_item_id: input.senderBatchId,
+      },
+    ],
+  });
+}
+
+export function getPayout(batchId: string) {
+  return call<PayoutBatch>("GET", `/v1/payments/payouts/${encodeURIComponent(batchId)}`);
+}

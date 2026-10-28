@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   customType,
   date,
@@ -65,6 +66,7 @@ export const claimStatus = pgEnum("claim_status", [
   "invoiced", // included in a sent PayPal invoice
   "settled", // that invoice was paid
   "withdrawn",
+  "paid_out", // landlord paid the tenant back directly via PayPal Payouts instead of crediting rent
 ]);
 
 export const claims = pgTable(
@@ -82,6 +84,8 @@ export const claims = pgTable(
     landlordShareCents: integer("landlord_share_cents"),
     tenantShareCents: integer("tenant_share_cents"),
     splitRationale: text("split_rationale"),
+    /** The tenant asked to be paid back right away via PayPal rather than credited on rent. A request; the landlord decides. */
+    tenantWantsPayout: boolean("tenant_wants_payout").notNull().default(false),
     /** Set while an agent review runs, so two reviews of the same claim can't overlap. */
     reviewStartedAt: timestamp("review_started_at", { withTimezone: true }),
     landlordApprovedAt: timestamp("landlord_approved_at", { withTimezone: true }),
@@ -117,7 +121,7 @@ export const evidence = pgTable(
   (t) => [index("evidence_claim_idx").on(t.claimId), index("evidence_sha256_idx").on(t.sha256)],
 );
 
-export const ledgerKind = pgEnum("ledger_kind", ["rent", "charge", "credit", "carry_over", "payment"]);
+export const ledgerKind = pgEnum("ledger_kind", ["rent", "charge", "credit", "carry_over", "payment", "payout"]);
 
 /**
  * Signed amounts from the tenant's point of view: positive = tenant owes more (rent, charge),
@@ -142,7 +146,9 @@ export const ledgerEntries = pgTable(
     check("period_format", sql`${t.period} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
     check(
       "sign_matches_kind",
-      sql`(${t.kind} in ('rent', 'charge') and ${t.amountCents} > 0) or (${t.kind} in ('credit', 'carry_over', 'payment') and ${t.amountCents} < 0)`,
+      // A payout is money the landlord sent the tenant, so it cancels a credit: positive, like a charge.
+      // Compared as text so this constraint can ship in the same migration that adds the enum value.
+      sql`(${t.kind}::text in ('rent', 'charge', 'payout') and ${t.amountCents} > 0) or (${t.kind}::text in ('credit', 'carry_over', 'payment') and ${t.amountCents} < 0)`,
     ),
   ],
 );
@@ -183,3 +189,20 @@ export const events = pgTable(
   },
   (t) => [index("events_lease_idx").on(t.leaseId, t.createdAt), index("events_claim_idx").on(t.claimId)],
 );
+
+export const payoutStatus = pgEnum("payout_status", ["pending", "succeeded", "failed"]);
+
+/** A landlord paying a tenant back right away through PayPal Payouts, one per claim. */
+export const payouts = pgTable("payouts", {
+  id: id(),
+  claimId: uuid("claim_id").notNull().unique().references(() => claims.id),
+  leaseId: uuid("lease_id").notNull().references(() => leases.id),
+  amountCents: integer("amount_cents").notNull(),
+  status: payoutStatus("status").notNull().default("pending"),
+  /** PayPal's payout_batch_id; our sender_batch_id is derived from the claim id. */
+  paypalBatchId: text("paypal_batch_id").unique(),
+  /** Latest PayPal item status, e.g. PENDING, SUCCESS, UNCLAIMED, FAILED. */
+  paypalStatus: text("paypal_status"),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

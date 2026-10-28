@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { addEvidence, approveClaim, createClaim, proposeSplit, removeEvidence, requestReview, updateClaimAmount, withdrawClaim } from "@/lib/claims";
+import { eq } from "drizzle-orm";
+import { addEvidence, approveClaim, createClaim, getClaimForUser, proposeSplit, removeEvidence, requestReview, setPayoutPreference, updateClaimAmount, withdrawClaim } from "@/lib/claims";
+import { db, schema } from "@/lib/db";
+import { payClaimNow, syncPayout } from "@/lib/payouts";
 import { parseUsd } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import { EVIDENCE_KINDS, type EvidenceKind } from "@/lib/storage";
@@ -49,6 +52,7 @@ export async function submitClaim(_prev: FormState, formData: FormData): Promise
       description: parsed.data.description,
       issueReportedAt: new Date(`${parsed.data.issueDate}T12:00:00Z`),
       amountCents,
+      tenantWantsPayout: formData.get("wantsPayout") === "on",
       files,
     });
   } catch (err) {
@@ -139,4 +143,31 @@ export async function removePhoto(_prev: FormState, formData: FormData): Promise
   }
   revalidatePath(`/claims/${claimId}`);
   return { error: null };
+}
+
+export async function payBackNow(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const claimId = String(formData.get("claimId"));
+  try {
+    await payClaimNow(user, claimId);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not send the payout" };
+  }
+  revalidatePath(`/claims/${claimId}`);
+  return { error: null };
+}
+
+/** Either party's page polls this while a payout is pending. */
+export async function refreshPayout(claimId: string) {
+  const user = await requireUser();
+  if (!(await getClaimForUser(claimId, user.id))) return;
+  const [payout] = await db().select().from(schema.payouts).where(eq(schema.payouts.claimId, claimId));
+  if (payout?.status === "pending") await syncPayout(payout.id);
+}
+
+export async function changePayoutPreference(formData: FormData) {
+  const user = await requireUser();
+  const claimId = String(formData.get("claimId"));
+  await setPayoutPreference(user, claimId, formData.get("wantsPayout") === "true");
+  revalidatePath(`/claims/${claimId}`);
 }

@@ -51,6 +51,8 @@ export type NewClaim = {
   description: string;
   issueReportedAt: Date;
   amountCents: Cents;
+  /** Tenant only: ask to be paid back via PayPal right away instead of a rent credit. */
+  tenantWantsPayout?: boolean;
   files: { kind: EvidenceKind; file: File }[];
 };
 
@@ -68,6 +70,7 @@ export async function createClaim(user: User, input: NewClaim): Promise<string> 
         description: input.description,
         issueReportedAt: input.issueReportedAt,
         amountCents: input.amountCents,
+        tenantWantsPayout: user.id === lease.tenantId && !!input.tenantWantsPayout,
       })
       .returning();
     const stored = [];
@@ -78,7 +81,7 @@ export async function createClaim(user: User, input: NewClaim): Promise<string> 
       claimId: claim.id,
       actor: roleOf(lease, user.id),
       type: "claim.submitted",
-      data: { by: user.name, title: claim.title, amountCents: claim.amountCents, evidence: stored.map((s) => s.kind) },
+      data: { by: user.name, title: claim.title, amountCents: claim.amountCents, evidence: stored.map((s) => s.kind), wantsPayout: claim.tenantWantsPayout },
     });
     return claim.id;
   });
@@ -323,6 +326,19 @@ export async function updateClaimAmount(user: User, claimId: string, amountCents
       type: "claim.amount_changed",
       data: { by: user.name, fromCents: row.claim.amountCents, toCents: amountCents },
     });
+  });
+}
+
+/** The tenant who submitted a claim changes how they'd like to be paid back, until both sides approve. */
+export async function setPayoutPreference(user: User, claimId: string, wantsPayout: boolean) {
+  const found = await getClaimForUser(claimId, user.id);
+  if (!found || found.claim.submittedBy !== user.id || found.role !== "tenant") throw new Error("Only the tenant who submitted the claim can change this");
+  // The landlord approved with this preference in view, so it's fixed once both sides agree.
+  if (!isOpen(found.claim)) throw new Error("Both of you already approved this claim, so the payback preference can't change");
+  if (found.claim.tenantWantsPayout === wantsPayout) return;
+  await db().transaction(async (tx) => {
+    await tx.update(schema.claims).set({ tenantWantsPayout: wantsPayout, updatedAt: new Date() }).where(eq(schema.claims.id, claimId));
+    await tx.insert(schema.events).values({ leaseId: found.lease.id, claimId, actor: "tenant", type: "claim.payout_preference", data: { by: user.name, wantsPayout } });
   });
 }
 

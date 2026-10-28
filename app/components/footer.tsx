@@ -11,7 +11,7 @@ export function Footer() {
           <AuntTallyAvatar size={24} />
           EvenTally
         </Link>
-        <nav className="flex flex-col items-center gap-1 sm:items-start">
+        <nav className="flex flex-col items-center gap-1 text-center">
           <Link href="/about" className="text-sm text-stone-600 transition-opacity hover:opacity-70">
             About {ASSISTANT.name}
           </Link>

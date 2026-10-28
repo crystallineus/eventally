@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { and, eq } from "drizzle-orm";
-import { explainInvoice, listTodos } from "@/lib/assistant/context";
+import { explainClaim, explainMonth, listClaims, listTodos } from "@/lib/assistant/context";
 import { runToolkitTool, toolkitTools, trimInvoice } from "@/lib/assistant/paypal-toolkit";
 import { db, schema } from "@/lib/db";
 import { amountsIn, unknownAmounts } from "@/lib/guard";
@@ -27,10 +27,25 @@ export type ChatReply = { text: string; pending?: PendingReminder };
 
 const OWN_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
-    name: "explain_invoice",
+    name: "explain_month",
     description:
-      "Line-by-line breakdown of one month's rent invoice from the EvenTally ledger, with the repair claim behind each charge or credit and why both sides agreed. Leave period out for the latest invoice (or the next one if none was sent).",
+      "Everything on the EvenTally ledger for one month: rent, payments, repair charges and credits, PayPal payouts, and the rent invoice if one was sent, with the claim behind each line. Leave period out for the latest month; the month after the last billed one shows the next invoice preview.",
     input_schema: { type: "object", properties: { period: { type: "string", description: "Month as YYYY-MM" } } },
+  },
+  {
+    name: "list_claims",
+    description: "All repair claims on this lease with their status, amounts and links.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "explain_claim",
+    description:
+      "One repair claim in detail: who paid up front, the proposed or agreed split and why, approvals, Aunt Tally's review results, any evidence request, payout, and the next step for the person asking.",
+    input_schema: {
+      type: "object",
+      properties: { claim: { type: "string", description: "Claim title words (e.g. \"range hood\") or its claim_id" } },
+      required: ["claim"],
+    },
   },
   {
     name: "list_todos",
@@ -58,7 +73,7 @@ function systemPrompt(lease: Lease, role: Role, names: { me: string; other: stri
 
 You're talking with ${names.me}, the ${role} on "${lease.propertyName}" (the ${role === "landlord" ? "tenant" : "landlord"} is ${names.other}). Rent is ${formatUsd(lease.rentCents)} a month, due on day ${lease.dueDay}. Today is ${todayInAppZone()} (Pacific time).
 
-You can explain a rent invoice line by line, list what's waiting on ${names.me}, and look an invoice up in PayPal.${role === "landlord" ? " You can also prepare a payment reminder; it only goes out after the landlord presses Confirm." : ""}
+You can explain any month on the ledger line by line, explain a repair claim and where it stands, list what's waiting on ${names.me}, and look an invoice up in PayPal.${role === "landlord" ? " You can also prepare a payment reminder; it only goes out after the landlord presses Confirm." : ""}
 
 Rules:
 - Look things up with your tools before answering; don't guess.
@@ -95,8 +110,12 @@ export async function chat(user: { id: string; name: string }, lease: Lease, his
 
   async function runTool(name: string, input: Record<string, unknown>): Promise<unknown> {
     switch (name) {
-      case "explain_invoice":
-        return explainInvoice(lease, typeof input.period === "string" ? input.period : undefined);
+      case "explain_month":
+        return explainMonth(lease, typeof input.period === "string" ? input.period : undefined);
+      case "list_claims":
+        return listClaims(lease);
+      case "explain_claim":
+        return explainClaim(lease, role, String(input.claim ?? ""));
       case "list_todos":
         return { todos: await listTodos(lease, role) };
       case "get_invoice": {

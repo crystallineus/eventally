@@ -3,6 +3,7 @@ import Link from "next/link";
 import { formatDateTime } from "@/lib/time";
 import { notFound } from "next/navigation";
 import { ActivityList } from "@/app/components/activity-list";
+import { Assistant } from "@/app/components/assistant";
 import { ClaimStatus } from "@/app/components/claim-status";
 import { SubmitButton } from "@/app/components/submit-button";
 import { condenseReviews, describeEvent, groupSteps, proposalHistory, type Proposal } from "@/app/components/event-label";
@@ -61,6 +62,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
 
   return (
     <div className="space-y-8">
+      <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} />
       <Link href={`/ledger?lease=${lease.id}`} className="text-sm text-stone-600 hover:text-stone-900">
         ← {lease.propertyName} ledger
       </Link>

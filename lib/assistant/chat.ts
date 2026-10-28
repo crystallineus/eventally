@@ -114,6 +114,9 @@ export async function chat(user: { id: string; name: string }, lease: Lease, his
         const invoice = ownsInvoice(input.paypal_invoice_id);
         if (!invoice || invoice.status !== "sent") return { error: "Reminders are only for an unpaid invoice that was sent on this lease." };
         const note = String(input.note ?? "").slice(0, 200);
+        // The tenant reads this note, so it goes through the money guard too.
+        const wrong = unknownAmounts(note, known.add(invoice.totalCents));
+        if (wrong.length) return { error: `These amounts in the note don't match the invoice: ${wrong.join(", ")}. Rewrite the note.` };
         pending = { type: "send_reminder", invoiceId: invoice.id, paypalInvoiceId: invoice.paypalInvoiceId!, month: formatPeriod(invoice.period), amount: formatUsd(invoice.totalCents), note };
         return { status: "waiting for the landlord to press Confirm", month: pending.month, amount: pending.amount, note };
       }

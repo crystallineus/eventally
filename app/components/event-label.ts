@@ -34,6 +34,8 @@ export function describeEvent(type: string, data: unknown): string {
       return `PayPal invoice sent to ${d.to} for ${formatUsd(Number(d.totalCents ?? 0))}.`;
     case "invoice.send_failed":
       return "PayPal didn't accept the invoice; it's saved as a draft.";
+    case "invoice.reminder_sent":
+      return `${by} sent a PayPal payment reminder for the ${d.period} invoice.`;
     case "invoice.paid":
       return String(d.summary ?? "Invoice paid.");
     case "payout.started":

@@ -9,6 +9,7 @@ import { formatLeaseTerm } from "@/lib/period";
 import { requireUser } from "@/lib/session";
 import { PaymentWatcher, RefreshInvoiceButton, SendInvoiceButton } from "./invoice-controls";
 import { ActivityList } from "@/app/components/activity-list";
+import { Assistant } from "@/app/components/assistant";
 
 export default async function LedgerPage({ searchParams }: PageProps<"/ledger">) {
   const user = await requireUser();
@@ -29,6 +30,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
   return (
     <div className="space-y-8">
       {awaitingPayment && <PaymentWatcher />}
+      <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} />
       {leases.length > 1 && (
         <nav className="flex flex-wrap gap-2 text-sm">
           {leases.map((l) => (

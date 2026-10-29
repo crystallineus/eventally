@@ -7,6 +7,7 @@ import { db, schema } from "@/lib/db";
 import { amountsIn, unknownAmounts } from "@/lib/guard";
 import { formatUsd, parseUsd, type Cents } from "@/lib/money";
 import { ASSISTANT } from "@/lib/persona";
+import { NOTIFY_LABEL, NOTIFY_LEVELS, type NotifyLevel } from "@/lib/notifications-shared";
 import { formatLeaseTerm } from "@/lib/period";
 import { todayInAppZone } from "@/lib/time";
 
@@ -120,6 +121,19 @@ const ACTION_TOOLS: { tool: Anthropic.Beta.BetaTool; kind: Action["kind"]; roles
   { kind: "pay_back_now", roles: ["landlord"], tool: { name: "prepare_pay_back_now", description: "Landlord: prepare paying the tenant back now via PayPal Payouts on an approved claim.", input_schema: { type: "object", properties: claimRef, required: ["claim"] } } },
   { kind: "send_next_invoice", roles: ["landlord"], tool: { name: "prepare_send_invoice", description: "Landlord: prepare sending next month's rent invoice through PayPal.", input_schema: { type: "object", properties: {} } } },
   {
+    kind: "set_notifications",
+    roles: ["landlord", "tenant"],
+    tool: {
+      name: "prepare_notifications",
+      description: "Prepare changing what shows up under their notification bell.",
+      input_schema: {
+        type: "object",
+        properties: { level: { type: "string", enum: [...NOTIFY_LEVELS], description: "important = only things that need them; all = every update; off = nothing" } },
+        required: ["level"],
+      },
+    },
+  },
+  {
     kind: "pay_invoice",
     roles: ["tenant"],
     tool: {
@@ -143,7 +157,7 @@ const ACTION_TOOLS: { tool: Anthropic.Beta.BetaTool; kind: Action["kind"]; roles
   },
 ];
 
-function systemPrompt(lease: Lease, role: Role, names: { me: string; other: string }, savedPayPal: string | null) {
+function systemPrompt(lease: Lease, role: Role, names: { me: string; other: string }, savedPayPal: string | null, notify: NotifyLevel) {
   return `You are ${ASSISTANT.name} (full name ${ASSISTANT.fullName}), the AI assistant in the EvenTally app, an elephant auntie who keeps the ledger. You are an AI, not a person; never claim or imply otherwise. Your voice is warm, plain and calm, never cutesy about money, and on nobody's side.
 
 You're talking with ${names.me}, the ${role} on "${lease.propertyName}" (the ${role === "landlord" ? "tenant" : "landlord"} is ${names.other}). Rent is ${formatUsd(lease.rentCents)} a month, due on day ${lease.dueDay}. Today is ${todayInAppZone()} (Pacific time).
@@ -155,7 +169,8 @@ Rules:
 - Every dollar amount you write must come from a tool result or from what ${names.me} told you.
 - Doing things: your prepare_* tools only show a confirmation card. Nothing happens until ${names.me} presses its button, so never say it's done; say what the card will do and ask them to check it. When they ask you to do something, prepare the card right away instead of asking "shall I?": the card is how they confirm. Only one card shows at a time. Your messages starting with ✓ or ✗ were written by the app after the person pressed a card: ✓ means it really happened, ✗ means it failed. You can only act for ${names.me}, never for ${names.other}.
 - Submitting a claim: you need what was repaired, the receipt total, what happened, when it was reported, and photos (a receipt; before/after if they have them, attached with the paperclip button).${role === "tenant" ? " Also ask whether they'd like to be paid back right away via PayPal or credited on the next rent invoice." : ""} Ask for anything missing, a couple of things at a time. After three rounds of asking, prepare the claim with what you have; your review will ask for anything still missing.
-- After a review, tell them what it found and offer the next step: approve the split, propose a different one, add evidence, or withdraw.${role === "tenant" ? `
+- After a review, tell them what it found and offer the next step: approve the split, propose a different one, add evidence, or withdraw.
+- Notifications: ${names.me}'s bell is set to "${NOTIFY_LABEL[notify]}". After they submit a claim, approve, or propose a split, say they'll see it under the bell when ${names.other} responds${notify === "off" ? `; since their notifications are off, ask if they'd like "${NOTIFY_LABEL.important}" turned on` : ""}.${role === "tenant" ? `
 - Paying rent: ${savedPayPal ? `${names.me} saved their PayPal (${savedPayPal}) for rent, so you can prepare a Pay card when a rent invoice is waiting. When they ask what they owe, list the unpaid invoice and the approved claims on it, then ask if they'd like to pay it now.` : `${names.me} hasn't saved a PayPal for rent. They can pay with the invoice's Pay with PayPal button, or press "Save my PayPal for rent" on the [ledger](/ledger) once so you can pay for them next time.`}` : ""}
 - Link to pages with links from tool results, written as [text](/path).
 - No legal advice. If asked who should pay for a repair, say each claim is settled by both people approving a split.
@@ -165,7 +180,7 @@ Rules:
 - Keep answers short: a few sentences or a short list.`;
 }
 
-export async function chat(user: { id: string; name: string; paypalVaultId?: string | null; paypalVaultEmail?: string | null }, lease: Lease, history: ChatMessage[], attachments: Attachment[] = []): Promise<ChatReply> {
+export async function chat(user: { id: string; name: string; paypalVaultId?: string | null; paypalVaultEmail?: string | null; notify?: NotifyLevel }, lease: Lease, history: ChatMessage[], attachments: Attachment[] = []): Promise<ChatReply> {
   const role: Role = lease.landlordId === user.id ? "landlord" : "tenant";
   const [other] = await db()
     .select({ name: schema.users.name })
@@ -248,7 +263,7 @@ export async function chat(user: { id: string; name: string; paypalVaultId?: str
       max_tokens: 4000,
       ...FALLBACK,
       output_config: { effort: "low" },
-      system: systemPrompt(lease, role, { me: user.name, other: other?.name ?? "the other side" }, user.paypalVaultId ? (user.paypalVaultEmail ?? "saved") : null),
+      system: systemPrompt(lease, role, { me: user.name, other: other?.name ?? "the other side" }, user.paypalVaultId ? (user.paypalVaultEmail ?? "saved") : null, user.notify ?? "important"),
       tools,
       messages,
     });

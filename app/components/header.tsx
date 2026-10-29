@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
 import { switchUser } from "@/app/actions";
+import { describeEvent } from "@/app/components/event-label";
+import { NotificationBell } from "@/app/components/notification-bell";
+import { getNotifications } from "@/lib/notifications";
 import { getCurrentUser, getDemoUsers } from "@/lib/session";
+import { formatDateTime } from "@/lib/time";
 
 export async function Header() {
   const [current, users] = await Promise.all([getCurrentUser(), getDemoUsers()]);
   const isLandlord = users.find((u) => u.id === current?.id)?.role === "landlord";
+  const notifications = current ? await getNotifications(current) : null;
 
   return (
     <header className="border-b border-stone-200 bg-white">
@@ -26,7 +31,23 @@ export async function Header() {
             </Link>
           )}
         </nav>
-        <form action={switchUser} className="ml-auto flex items-center gap-2 text-sm">
+        {current && notifications && (
+          <div className="ml-auto">
+            <NotificationBell
+              key={current.id}
+              level={current.notify}
+              unread={notifications.unread}
+              items={notifications.items.map((n) => ({
+                id: n.id,
+                href: n.href,
+                unread: n.unread,
+                text: describeEvent(n.event.type, n.event.data),
+                when: formatDateTime(n.event.createdAt),
+              }))}
+            />
+          </div>
+        )}
+        <form action={switchUser} className={`${current ? "" : "ml-auto "}flex items-center gap-2 text-sm`}>
           <span className="text-stone-500">Demo view as</span>
           {users.map((u) => (
             <button

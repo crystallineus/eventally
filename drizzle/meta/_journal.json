@@ -43,6 +43,13 @@
       "when": 1793245225327,
       "tag": "0005_tenant_paypal_vault",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793245633033,
+      "tag": "0006_notifications",
+      "breakpoints": true
     }
   ]
 }

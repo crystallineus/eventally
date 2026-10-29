@@ -21,6 +21,7 @@ import { formatUsd, parseUsd, splitByShare } from "@/lib/money";
 import { payClaimNow } from "@/lib/payouts";
 import { ASSISTANT } from "@/lib/persona";
 import { formatPeriod } from "@/lib/period";
+import { NOTIFY_LABEL, NOTIFY_LEVELS, setNotifyLevel, type NotifyLevel } from "@/lib/notifications";
 import type { User as SessionUser } from "@/lib/session";
 import type { EvidenceKind } from "@/lib/storage";
 import { payableInvoice, payInvoiceWithVault } from "@/lib/vault";
@@ -48,7 +49,8 @@ export type Action =
   | { kind: "pay_back_now"; claimId: string }
   | { kind: "send_next_invoice" }
   | { kind: "send_reminder"; invoiceId: string; note: string }
-  | { kind: "pay_invoice"; invoiceId: string };
+  | { kind: "pay_invoice"; invoiceId: string }
+  | { kind: "set_notifications"; level: NotifyLevel };
 
 /** What the confirmation card shows. `needsPhotos` asks the chat to send the photos attached in it. */
 export type Pending = { action: Action; title: string; lines: string[]; confirmLabel: string; needsPhotos?: boolean };
@@ -111,6 +113,17 @@ export async function prepareAction(
       title: `Send the ${plan.label} rent invoice through PayPal?`,
       lines: [...plan.invoice.lines.map((l) => `${l.name}: ${formatUsd(l.amountCents)}`), `Total: ${formatUsd(plan.invoice.totalCents)}`],
       confirmLabel: "Send invoice",
+    };
+  }
+
+  if (kind === "set_notifications") {
+    const level = String(input.level ?? "") as NotifyLevel;
+    if (!NOTIFY_LEVELS.includes(level)) return { error: `level must be one of ${NOTIFY_LEVELS.join(", ")}` };
+    return {
+      action: { kind, level },
+      title: `Notify you about: ${NOTIFY_LABEL[level].toLowerCase()}?`,
+      lines: [level === "off" ? "The bell stays quiet; the activity log still has everything." : "They show up under the bell at the top of the page."],
+      confirmLabel: "Save",
     };
   }
 
@@ -292,6 +305,9 @@ export async function performAction(
       case "send_reminder":
         await sendReminder(user, lease, action.invoiceId, action.note);
         return { message: "PayPal sent the reminder." };
+      case "set_notifications":
+        await setNotifyLevel(user, action.level);
+        return { message: `Notifications: ${NOTIFY_LABEL[action.level].toLowerCase()}.` };
       case "pay_invoice": {
         const paid = await payInvoiceWithVault(user, lease, action.invoiceId);
         return { message: `Paid ${formatUsd(paid.paidCents)} for ${paid.period} rent with your saved PayPal.` };

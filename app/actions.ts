@@ -1,11 +1,13 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { parseUsd } from "@/lib/money";
+import { markNotificationsSeen, setNotifyLevel, type NotifyLevel } from "@/lib/notifications";
 import { DEMO_USER_COOKIE, requireUser } from "@/lib/session";
 
 export async function switchUser(formData: FormData) {
@@ -90,4 +92,13 @@ export async function createLease(_prev: LeaseFormState, formData: FormData): Pr
   });
 
   redirect(`/ledger?lease=${leaseId}`);
+}
+
+export async function markNotificationsRead() {
+  await markNotificationsSeen(await requireUser());
+}
+
+export async function saveNotifyLevel(level: NotifyLevel) {
+  await setNotifyLevel(await requireUser(), level);
+  revalidatePath("/", "layout");
 }

@@ -14,6 +14,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { NOTIFY_LEVELS } from "../notifications-shared";
 
 // Files live in Postgres for now; lib/storage.ts is the only code that should touch this column.
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
@@ -22,6 +23,9 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
 
 const id = () => uuid("id").primaryKey().defaultRandom();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
+
+/** What shows up in the bell (and, later, email): only things that need you, every update, or nothing. */
+export const notifyLevel = pgEnum("notify_level", NOTIFY_LEVELS);
 
 export const users = pgTable("users", {
   id: id(),
@@ -34,6 +38,9 @@ export const users = pgTable("users", {
   /** Tenant's PayPal saved with PayPal Vault, so Aunt Tally can pay rent when they confirm. */
   paypalVaultId: text("paypal_vault_id"),
   paypalVaultEmail: text("paypal_vault_email"),
+  notify: notifyLevel("notify").notNull().default("important"),
+  /** Bell items up to here have been seen. */
+  notificationsSeenAt: timestamp("notifications_seen_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
 

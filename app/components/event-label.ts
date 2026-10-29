@@ -16,7 +16,9 @@ function describe(type: string, data: unknown): string {
     case "lease.created":
       return `Lease created: ${d.landlord} rents to ${d.tenant}.`;
     case "claim.submitted":
-      return `${by} submitted a claim for ${formatUsd(Number(d.amountCents ?? 0))}.`;
+      return d.amountCents == null ? `${by} submitted a claim.` : `${by} submitted a claim for ${formatUsd(Number(d.amountCents))}.`;
+    case "claim.filled_from_receipt":
+      return `${ASSISTANT.name} filled in ${[d.amountCents != null && `the amount (${formatUsd(Number(d.amountCents))})`, d.date && `the date (${d.date})`].filter(Boolean).join(" and ")} from the receipt.`;
     case "evidence.removed":
       return `${by} removed a ${String(d.kind ?? "")} photo.`;
     case "evidence.added":

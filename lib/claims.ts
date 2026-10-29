@@ -51,8 +51,9 @@ export type NewClaim = {
   leaseId: string;
   title: string;
   description: string;
-  issueReportedAt: Date;
-  amountCents: Cents;
+  /** Null: unknown yet, filled from the receipt by the review. */
+  issueReportedAt: Date | null;
+  amountCents: Cents | null;
   /** Tenant only: ask to be paid back via PayPal right away instead of a rent credit. */
   tenantWantsPayout?: boolean;
   files: { kind: EvidenceKind; file: File }[];

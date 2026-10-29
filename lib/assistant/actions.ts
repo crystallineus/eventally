@@ -38,7 +38,7 @@ type Role = "landlord" | "tenant";
 type User = { id: string; name: string };
 
 export type Action =
-  | { kind: "create_claim"; title: string; description: string; issueDate: string; amount: string; wantsPayout: boolean }
+  | { kind: "create_claim"; title: string; description: string; issueDate: string | null; amount: string | null; wantsPayout: boolean }
   | { kind: "add_evidence"; claimId: string }
   | { kind: "approve_split"; claimId: string }
   | { kind: "propose_split"; claimId: string; landlordPercent: number; rationale: string }
@@ -72,22 +72,26 @@ export async function prepareAction(
     const title = String(input.title ?? "").trim();
     const amount = String(input.amount ?? "").replace(/[$,\s]/g, "");
     if (title.length < 3) return { error: "Ask what was repaired (a short title)." };
-    let cents: number;
-    try {
-      cents = parseUsd(amount);
-    } catch {
-      return { error: "Ask for the receipt total as a dollar amount." };
+    // Amount and date are optional: the review reads them off the receipt.
+    let cents: number | null = null;
+    if (amount) {
+      try {
+        cents = parseUsd(amount);
+      } catch {
+        return { error: "The amount isn't a dollar figure; leave it out and the review reads it from the receipt." };
+      }
+      if (cents <= 0) return { error: "The receipt total must be more than $0." };
     }
-    if (cents <= 0) return { error: "The receipt total must be more than $0." };
-    const issueDate = /^\d{4}-\d{2}-\d{2}$/.test(String(input.issue_date)) ? String(input.issue_date) : new Date().toISOString().slice(0, 10);
+    if (cents == null && !attachments.some((a) => a.kind === "receipt")) return { error: "Ask for a photo of the receipt (paperclip button); the review reads the total from it." };
+    const issueDate = /^\d{4}-\d{2}-\d{2}$/.test(String(input.issue_date)) ? String(input.issue_date) : null;
     const description = String(input.description ?? "").trim() || title;
     const wantsPayout = role === "tenant" && input.wants_payout === true;
     return {
-      action: { kind, title, description, issueDate, amount: (cents / 100).toFixed(2), wantsPayout },
+      action: { kind, title, description, issueDate, amount: cents == null ? null : (cents / 100).toFixed(2), wantsPayout },
       title: `Submit the claim "${title}"?`,
       lines: [
-        `Receipt total: ${formatUsd(cents)}`,
-        `Problem reported: ${issueDate}`,
+        `Receipt total: ${cents == null ? "read from the receipt during review" : formatUsd(cents)}`,
+        ...(issueDate ? [`Problem reported: ${issueDate}`] : []),
         `What happened: ${description}`,
         photoLine,
         ...(role === "tenant" ? [wantsPayout ? "You'd like to be paid back right away via PayPal" : "The landlord's share comes off your next rent invoice"] : []),
@@ -267,8 +271,8 @@ export async function performAction(
           leaseId: lease.id,
           title: action.title,
           description: action.description,
-          issueReportedAt: new Date(`${action.issueDate}T12:00:00Z`),
-          amountCents: parseUsd(action.amount),
+          issueReportedAt: action.issueDate ? new Date(`${action.issueDate}T12:00:00Z`) : null,
+          amountCents: action.amount ? parseUsd(action.amount) : null,
           tenantWantsPayout: action.wantsPayout,
           files: photos,
         });

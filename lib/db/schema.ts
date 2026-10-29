@@ -87,9 +87,11 @@ export const claims = pgTable(
     submittedBy: uuid("submitted_by").notNull().references(() => users.id),
     title: text("title").notNull(),
     description: text("description").notNull(),
-    issueReportedAt: timestamp("issue_reported_at", { withTimezone: true }).notNull(),
+    /** Null when a claim came from the chat without a date; the review fills it from the receipt. */
+    issueReportedAt: timestamp("issue_reported_at", { withTimezone: true }),
     status: claimStatus("status").notNull().default("reviewing"),
-    /** Receipt total as confirmed by the submitter (may differ from what the agent extracted). */
+    /** Receipt total as confirmed by the submitter (may differ from what the agent extracted). Null until
+     *  known: a claim from the chat can leave it to the review, which fills it from the receipt. */
     amountCents: integer("amount_cents"),
     landlordShareCents: integer("landlord_share_cents"),
     tenantShareCents: integer("tenant_share_cents"),

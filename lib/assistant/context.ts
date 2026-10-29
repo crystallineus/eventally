@@ -32,7 +32,7 @@ function claimSummary(lease: Lease, c: Claim) {
     status: CLAIM_STATUS[c.status] ?? c.status,
     // Who paid the repair bill up front is not who ends up bearing the cost; say both plainly.
     paid_up_front_by: tenantFronted ? "tenant (paid the repair bill and is being reimbursed)" : "landlord (paid the repair bill and is charging the tenant's share)",
-    receipt_total: formatUsd(c.amountCents ?? 0),
+    receipt_total: c.amountCents == null ? "not known yet (read from the receipt during review)" : formatUsd(c.amountCents),
     split: c.landlordShareCents == null ? "no split proposed yet" : `landlord bears ${formatUsd(c.landlordShareCents)}, tenant bears ${formatUsd(c.tenantShareCents ?? 0)}`,
     link: `/claims/${c.id}`,
   };
@@ -153,7 +153,7 @@ export async function explainClaim(lease: Lease, role: Role, ref: string) {
   return {
     ...claimSummary(lease, c),
     description: c.description.slice(0, 400),
-    reported_on: c.issueReportedAt.toISOString().slice(0, 10),
+    reported_on: c.issueReportedAt?.toISOString().slice(0, 10) ?? "not given yet",
     agreed_or_proposed_reason: c.splitRationale?.split("\n\nLease:")[0].slice(0, 400) ?? null,
     approvals: { landlord: c.landlordApprovedAt ? "approved" : "not yet", tenant: c.tenantApprovedAt ? "approved" : "not yet" },
     tenant_asked_to_be_paid_back_now: c.tenantWantsPayout,

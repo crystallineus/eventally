@@ -230,8 +230,12 @@ async function loadContext(claim: Claim, lease: Lease, reviewNumber: number) {
       type: "text",
       text: [
         `Claim: ${claim.title}`,
-        `Submitted by ${name(claim.submittedBy)} (the ${submitterRole}), who paid ${formatUsd(claim.amountCents ?? 0)} and is asking to be reimbursed.`,
-        `Problem reported on: ${claim.issueReportedAt.toISOString().slice(0, 10)}`,
+        claim.amountCents == null
+          ? `Submitted by ${name(claim.submittedBy)} (the ${submitterRole}), who is asking to be reimbursed. They didn't enter the amount; record_receipt fills it in from the receipt total.`
+          : `Submitted by ${name(claim.submittedBy)} (the ${submitterRole}), who paid ${formatUsd(claim.amountCents)} and is asking to be reimbursed.`,
+        claim.issueReportedAt
+          ? `Problem reported on: ${claim.issueReportedAt.toISOString().slice(0, 10)}`
+          : "Problem reported on: not given; record_receipt uses the receipt date.",
         `Description: ${claim.description}`,
         "",
         `Property: ${lease.propertyName}. Landlord: ${name(lease.landlordId)}. Tenant: ${name(lease.tenantId)}.`,
@@ -320,6 +324,22 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
       .update(schema.evidence)
       .set({ extracted: { ...receipt, legible: input.legible } })
       .where(eq(schema.evidence.id, evidence.id));
+
+    // Claims from the chat can leave the amount and date to the receipt. Only a readable receipt fills them.
+    const fill: { amountCents?: Cents; issueReportedAt?: Date } = {};
+    if (input.legible && ctx.claim.amountCents == null && receipt.totalCents > 0) fill.amountCents = receipt.totalCents;
+    if (input.legible && !ctx.claim.issueReportedAt && receipt.date) fill.issueReportedAt = new Date(`${receipt.date}T12:00:00Z`);
+    if (Object.keys(fill).length) {
+      const [updated] = await db().update(schema.claims).set(fill).where(eq(schema.claims.id, ctx.claim.id)).returning();
+      ctx.claim = updated;
+      await db().insert(schema.events).values({
+        leaseId: ctx.claim.leaseId,
+        claimId: ctx.claim.id,
+        actor: "agent",
+        type: "claim.filled_from_receipt",
+        data: { amountCents: fill.amountCents ?? null, date: fill.issueReportedAt ? receipt.date : null },
+      });
+    }
     return {
       result: {
         status: input.legible ? "pass" : "warn",
@@ -330,13 +350,15 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
 
   async check_math(_input, ctx) {
     if (!ctx.receipt) throw new Error("Call record_receipt first");
-    return { result: checkMath(ctx.receipt, ctx.claim.amountCents ?? 0) };
+    if (ctx.claim.amountCents == null) throw new Error("The claim has no amount and the receipt couldn't be read; ask for a clearer receipt photo");
+    return { result: checkMath(ctx.receipt, ctx.claim.amountCents) };
   },
 
   async check_dates(_input, ctx) {
     if (!ctx.receipt) throw new Error("Call record_receipt first");
     const today = todayInAppZone();
-    return { result: checkDates(ctx.receipt.date, ctx.claim.issueReportedAt.toISOString().slice(0, 10), ctx.lease, today) };
+    const reported = ctx.claim.issueReportedAt?.toISOString().slice(0, 10) ?? ctx.receipt.date ?? today;
+    return { result: checkDates(ctx.receipt.date, reported, ctx.lease, today) };
   },
 
   async check_duplicate(_input, ctx) {
@@ -411,7 +433,8 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
   },
 
   async propose_split(input, ctx) {
-    const total = ctx.claim.amountCents ?? 0;
+    if (ctx.claim.amountCents == null) throw new Error("The claim has no amount yet; ask for a readable receipt instead");
+    const total = ctx.claim.amountCents;
     const { landlord, tenant } = splitByShare(total, Math.round(input.landlord_percent * 100));
     const known = new Set(ctx.knownAmounts).add(landlord).add(tenant);
     const unknown = unknownAmounts(`${input.rationale} ${input.lease_citation}`, known);

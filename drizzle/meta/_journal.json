@@ -50,6 +50,13 @@
       "when": 1793245633033,
       "tag": "0006_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793247937145,
+      "tag": "0007_claim_details_from_receipt",
+      "breakpoints": true
     }
   ]
 }

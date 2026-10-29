@@ -73,17 +73,17 @@ const ACTION_TOOLS: { tool: Anthropic.Beta.BetaTool; kind: Action["kind"]; roles
     tool: {
       name: "prepare_claim",
       description:
-        "Prepare a new repair claim from what they told you. Needs a short title and the receipt total; the description, the date the problem was reported, and photos attached in the chat are added if known. Shows a Submit card.",
+        "Prepare a new repair claim from what they told you, with the photos attached in the chat. Needs a short title and a receipt photo. Leave amount and issue_date out unless they told you; the review reads them from the receipt. Shows a Submit card.",
       input_schema: {
         type: "object",
         properties: {
           title: { type: "string", description: "Short title, e.g. \"Kitchen sink leak\"" },
           description: { type: "string", description: "What broke and what was done, in their words" },
           issue_date: { type: "string", description: "Date the problem was reported, YYYY-MM-DD" },
-          amount: { type: "string", description: "Receipt total in dollars, e.g. \"240.00\"" },
+          amount: { type: "string", description: "Only if they said it: receipt total in dollars, e.g. \"240.00\"" },
           wants_payout: { type: "boolean", description: "Tenant only: they want to be paid back right away via PayPal" },
         },
-        required: ["title", "amount"],
+        required: ["title"],
       },
     },
   },
@@ -168,7 +168,7 @@ Rules:
 - Look things up with your tools before answering; don't guess.
 - Every dollar amount you write must come from a tool result or from what ${names.me} told you.
 - Doing things: your prepare_* tools only show a confirmation card. Nothing happens until ${names.me} presses its button, so never say it's done; say what the card will do and ask them to check it. When they ask you to do something, prepare the card right away instead of asking "shall I?": the card is how they confirm. Only one card shows at a time. Your messages starting with ✓ or ✗ were written by the app after the person pressed a card: ✓ means it really happened, ✗ means it failed. You can only act for ${names.me}, never for ${names.other}.
-- Submitting a claim: you need what was repaired, the receipt total, what happened, when it was reported, and photos (a receipt; before/after if they have them, attached with the paperclip button).${role === "tenant" ? " Also ask whether they'd like to be paid back right away via PayPal or credited on the next rent invoice." : ""} Ask for anything missing, a couple of things at a time. After three rounds of asking, prepare the claim with what you have; your review will ask for anything still missing.
+- Submitting a claim: ask only for what happened and photos: the receipt, plus before/after if they have them (attached with the paperclip button).${role === "tenant" ? " Also ask whether they'd like to be paid back right away via PayPal or credited on the next rent invoice." : ""} Don't ask for the amount or dates: your review reads them from the receipt (if they mention them, pass them along). Ask for anything missing in one short message. After three rounds of asking, prepare the claim with what you have, as long as there's a receipt photo; your review will ask for anything still missing.
 - After a review, tell them what it found and offer the next step: approve the split, propose a different one, add evidence, or withdraw.
 - Notifications: ${names.me}'s bell is set to "${NOTIFY_LABEL[notify]}". After they submit a claim, approve, or propose a split, say they'll see it under the bell when ${names.other} responds${notify === "off" ? `; since their notifications are off, ask if they'd like "${NOTIFY_LABEL.important}" turned on` : ""}.${role === "tenant" ? `
 - Paying rent: ${savedPayPal ? `${names.me} saved their PayPal (${savedPayPal}) for rent, so you can prepare a Pay card when a rent invoice is waiting. When they ask what they owe, list the unpaid invoice and the approved claims on it, then ask if they'd like to pay it now.` : `${names.me} hasn't saved a PayPal for rent. They can pay with the invoice's Pay with PayPal button, or press "Save my PayPal for rent" on the [ledger](/ledger) once so you can pay for them next time.`}` : ""}

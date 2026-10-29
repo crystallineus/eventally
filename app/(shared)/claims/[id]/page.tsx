@@ -72,13 +72,13 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{claim.title}</h1>
             <p className="text-sm text-stone-600">
-              Submitted by {submitter} ({tenantPaid ? "tenant" : "landlord"}) · reported{" "}
-              {claim.issueReportedAt.toLocaleDateString("en-US", { dateStyle: "medium", timeZone: "UTC" })}
+              Submitted by {submitter} ({tenantPaid ? "tenant" : "landlord"})
+              {claim.issueReportedAt && ` · reported ${claim.issueReportedAt.toLocaleDateString("en-US", { dateStyle: "medium", timeZone: "UTC" })}`}
             </p>
           </div>
           <div className="text-right">
             <ClaimStatus status={claim.status} />
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{formatUsd(claim.amountCents ?? 0)}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">{claim.amountCents == null ? "—" : formatUsd(claim.amountCents)}</p>
             <p className="text-xs text-stone-500">paid by {submitter}</p>
             {open && claim.submittedBy === user.id && !claim.reviewStartedAt && (
               <EditAmount claimId={claim.id} amountCents={claim.amountCents ?? 0} receiptTotalCents={receiptTotalCents} />

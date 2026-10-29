@@ -30,7 +30,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
   const outstanding = ledger.periods.find((p) => p.invoice?.status === "sent" || p.invoice?.status === "draft");
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {awaitingPayment && <PaymentWatcher />}
       <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} />
       {leases.length > 1 && (
@@ -52,16 +52,16 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
 
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-semibold">Repair claims</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Repair claims</h2>
           <Link
             href={`/claims/new?lease=${lease.id}`}
-            className="rounded-lg bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700"
+            className="rounded-full border border-stone-300 bg-white px-3.5 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100"
           >
             New claim
           </Link>
         </div>
         {openClaims.length === 0 ? (
-          <p className="rounded-xl border border-stone-200 bg-white p-5 text-sm text-stone-600">
+          <p className="rounded-2xl bg-white shadow-card p-5 text-sm text-stone-600">
             {claims.length ? "No open claims." : "No claims yet."} Paid for a repair? Submit the receipt and photos here.
           </p>
         ) : (
@@ -72,9 +72,9 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         )}
       </section>
 
-      <section className="rounded-xl border border-dashed border-stone-300 bg-white p-5">
+      <section className="rounded-2xl border border-dashed border-stone-300 bg-white p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-semibold">Next invoice · {ledger.upcoming.label}</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Next invoice · {ledger.upcoming.label}</h2>
           <span className="text-sm text-stone-500">Preview — sent via PayPal before rent is due</span>
         </div>
         <Lines lines={ledger.upcoming.invoice.lines} />
@@ -96,7 +96,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
       {role === "tenant" && <SavedPayPal email={user.paypalVaultId ? (user.paypalVaultEmail ?? "your PayPal") : null} notice={typeof vault === "string" ? vault : null} />}
 
       <section>
-        <h2 className="mb-3 font-semibold">Rent</h2>
+        <h2 className="mb-3 text-lg font-semibold tracking-tight">Rent</h2>
         <div className="space-y-4">
           {/* Anything not paid yet, plus the latest month; older months are on the history page. */}
           {recentMonths.map((p) => (
@@ -109,7 +109,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
       </section>
 
       <section>
-        <h2 className="mb-3 font-semibold">Activity log</h2>
+        <h2 className="mb-3 text-lg font-semibold tracking-tight">Activity log</h2>
         <p className="mb-3 text-sm text-stone-500">
           Every step — agent checks and reasoning, approvals, payments — is recorded here and visible to both of you.
         </p>
@@ -129,8 +129,8 @@ const VAULT_NOTICE: Record<string, string> = {
 /** Tenant: save a PayPal once (PayPal Vault) so rent can be paid without logging in each month. */
 function SavedPayPal({ email, notice }: { email: string | null; notice: string | null }) {
   return (
-    <section className="rounded-xl border border-stone-200 bg-white p-5">
-      <h2 className="font-semibold">Saved PayPal for rent</h2>
+    <section className="rounded-2xl bg-white shadow-card p-5">
+      <h2 className="text-lg font-semibold tracking-tight">Saved PayPal for rent</h2>
       {email ? (
         <p className="mt-1 text-sm text-stone-600">
           {email} is saved. When a rent invoice arrives, you or {ASSISTANT.name} can pay it with one press of Confirm; nothing is charged without it.
@@ -144,7 +144,7 @@ function SavedPayPal({ email, notice }: { email: string | null; notice: string |
         {email ? (
           <button className="text-sm text-stone-600 underline hover:text-stone-900">Remove saved PayPal</button>
         ) : (
-          <button className="rounded-lg bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]">Save my PayPal for rent</button>
+          <button className="rounded-full bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]">Save my PayPal for rent</button>
         )}
         {notice && VAULT_NOTICE[notice] && <span className="text-sm text-stone-500">{VAULT_NOTICE[notice]}</span>}
       </form>
@@ -155,7 +155,7 @@ function SavedPayPal({ email, notice }: { email: string | null; notice: string |
 function LeaseSummary({ lease, role, balanceCents }: { lease: LeaseWithParties; role: "landlord" | "tenant"; balanceCents: number }) {
   const landlord = lease.landlord.businessName ? `${lease.landlord.name} · ${lease.landlord.businessName}` : lease.landlord.name;
   return (
-    <section className="grid gap-4 rounded-xl border border-stone-200 bg-white p-5 sm:grid-cols-[1fr_auto]">
+    <section className="grid gap-4 rounded-2xl bg-white shadow-card p-5 sm:grid-cols-[1fr_auto]">
       <div>
         <p className="text-sm text-stone-500">You are the {role}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{lease.propertyName}</h1>
@@ -168,8 +168,8 @@ function LeaseSummary({ lease, role, balanceCents }: { lease: LeaseWithParties; 
           <Field label="Lease term" value={formatLeaseTerm(lease.startDate, lease.endDate)} />
         </dl>
       </div>
-      <div className="rounded-lg bg-stone-50 p-4 sm:min-w-48 sm:text-right">
-        <p className="text-sm text-stone-500">Balance owed</p>
+      <div className="rounded-xl bg-sky-50 p-4 sm:min-w-48 sm:text-right">
+        <p className="text-sm text-sky-700">Balance owed</p>
         <p className="text-2xl font-semibold tabular-nums">{formatUsd(balanceCents)}</p>
         <p className="text-sm text-stone-500">{balanceCents === 0 ? "All settled" : "Outstanding"}</p>
       </div>

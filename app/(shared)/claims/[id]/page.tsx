@@ -67,7 +67,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
         ← {lease.propertyName} ledger
       </Link>
 
-      <section className="rounded-xl border border-stone-200 bg-white p-5">
+      <section className="rounded-2xl bg-white shadow-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{claim.title}</h1>
@@ -141,7 +141,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
       )}
 
       <section>
-        <h2 className="mb-3 font-semibold">Evidence</h2>
+        <h2 className="mb-3 text-lg font-semibold tracking-tight">Evidence</h2>
         <EvidenceGallery
           claimId={claim.id}
           photos={evidence.map((e) => ({
@@ -156,9 +156,9 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
         {open && <AddEvidenceForm claimId={claim.id} />}
       </section>
 
-      <section className="rounded-xl border border-stone-200 bg-white p-5">
+      <section className="rounded-2xl bg-white shadow-card p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-semibold">Who pays</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Who pays</h2>
           {claim.landlordShareCents != null && latestProposal && (
             <span className="text-xs text-stone-500">
               {latestProposal.actor === "agent"
@@ -209,7 +209,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
         {claim.status === "awaiting_approval" && !myApproval && (
           <form action={approve} className="mt-4">
             <input type="hidden" name="claimId" value={claim.id} />
-            <SubmitButton pendingLabel="Approving…" className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50">
+            <SubmitButton pendingLabel="Approving…" className="rounded-full bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50">
               Approve this split
             </SubmitButton>
           </form>
@@ -223,7 +223,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
       </section>
 
       <section>
-        <h2 className="mb-3 font-semibold">Claim history</h2>
+        <h2 className="mb-3 text-lg font-semibold tracking-tight">Claim history</h2>
         <ActivityList events={condenseReviews(events)} />
       </section>
 
@@ -283,9 +283,9 @@ function AiReview({
   const notes = steps.filter((s) => !STEP_LABELS[s.type] && s.type !== "agent.review_started" && s.type !== "agent.review_finished");
 
   return (
-    <section className="rounded-xl border border-sky-200 bg-white p-5">
+    <section className="rounded-2xl bg-white shadow-card ring-1 ring-sky-100 p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-semibold">
+        <h2 className="text-lg font-semibold tracking-tight">
           {ASSISTANT.name}&apos;s review
           {reviewNumber > 0 && (
             <span className="ml-2 text-sm font-normal text-stone-500">
@@ -429,7 +429,7 @@ function PayBack({
       <span className="text-stone-600">
         {tenantWantsPayout ? "You asked to be paid back right away via PayPal." : "You'll be credited on the next rent invoice."}
       </span>
-      <SubmitButton className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 font-medium text-stone-800 shadow-sm hover:border-stone-500 hover:bg-stone-50 disabled:opacity-50">
+      <SubmitButton className="rounded-full border border-stone-300 bg-white px-3 py-1.5 font-medium text-stone-800 shadow-sm hover:border-stone-500 hover:bg-stone-50 disabled:opacity-50">
         {tenantWantsPayout ? "A rent credit is fine" : "Ask to be paid back now instead"}
       </SubmitButton>
     </form>

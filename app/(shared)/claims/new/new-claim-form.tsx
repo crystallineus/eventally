@@ -31,7 +31,7 @@ export function NewClaimForm({ leases, defaultLeaseId, today }: { leases: LeaseO
           }
         });
       }}
-      className="space-y-5 rounded-xl border border-stone-200 bg-white p-5"
+      className="space-y-5 rounded-2xl bg-white shadow-card p-5"
     >
       {leases.length > 1 ? (
         <Label text="Property">
@@ -90,7 +90,7 @@ export function NewClaimForm({ leases, defaultLeaseId, today }: { leases: LeaseO
           {resizeError ?? state.error}
         </p>
       )}
-      <button disabled={busy} className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700 disabled:opacity-50">
+      <button disabled={busy} className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700 disabled:opacity-50">
         {busy ? "Uploading…" : "Submit claim"}
       </button>
     </form>

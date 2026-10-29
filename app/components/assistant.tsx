@@ -247,9 +247,9 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
           onChange={(e) => setInput(e.target.value)}
           placeholder={`Ask ${ASSISTANT.name}…`}
           aria-label={`Message ${ASSISTANT.name}`}
-          className="flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-stone-900 focus:outline-none"
+          className="flex-1 rounded-xl border border-stone-300 px-3 py-2 text-sm focus:border-stone-900 focus:outline-none"
         />
-        <button disabled={!!busy || (!input.trim() && !draft.length)} className="rounded-lg bg-stone-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40">
+        <button disabled={!!busy || (!input.trim() && !draft.length)} className="rounded-full bg-stone-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40">
           Send
         </button>
       </form>
@@ -313,7 +313,7 @@ function ConfirmCard({ pending, photos, busy, onConfirm, onCancel }: { pending: 
         </ul>
       )}
       <div className="mt-3 flex gap-2">
-        <button onClick={onConfirm} disabled={busy} className="rounded-lg bg-sky-600 px-3 py-1.5 font-medium text-white hover:bg-sky-700 disabled:opacity-50">
+        <button onClick={onConfirm} disabled={busy} className="rounded-full bg-sky-600 px-3 py-1.5 font-medium text-white hover:bg-sky-700 disabled:opacity-50">
           {pending.confirmLabel}
         </button>
         <button onClick={onCancel} disabled={busy} className="rounded-lg px-3 py-1.5 text-stone-700 hover:bg-white">

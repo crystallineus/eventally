@@ -41,6 +41,9 @@
   --color-sky-700: #35578b;
   --color-sky-800: #2b4770;
   --color-sky-900: #213756;
+
+  /* Cards float on a soft shadow instead of a border. */
+  --shadow-card: 0 1px 2px rgb(4 8 15 / 0.04), 0 4px 16px rgb(4 8 15 / 0.05);
 }
 
 ::selection {

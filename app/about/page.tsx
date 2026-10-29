@@ -41,8 +41,8 @@ export default function AboutPage() {
         <p>I can also explain a bill line by line, and tell you what&apos;s waiting on you.</p>
       </section>
 
-      <section className="rounded-xl border border-stone-200 bg-white p-6">
-        <h2 className="font-semibold">What I won&apos;t do</h2>
+      <section className="rounded-2xl bg-white shadow-card p-6">
+        <h2 className="text-lg font-semibold tracking-tight">What I won&apos;t do</h2>
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-stone-700">
           <li>Decide for you. Nothing moves until both of you approve.</li>
           <li>Touch your money. I can suggest a split; only people send invoices or payouts.</li>
@@ -57,7 +57,7 @@ export default function AboutPage() {
           &mdash; {ASSISTANT.name} ({ASSISTANT.fullName}), {ASSISTANT.disclosure}, EvenTally
         </p>
         <p className="text-center">
-          <Link href="/" className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
+          <Link href="/" className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
             Try the demo
           </Link>
         </p>

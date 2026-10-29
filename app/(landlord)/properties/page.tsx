@@ -12,14 +12,14 @@ export default async function PropertiesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Properties</h1>
-        <Link href="/properties/new" className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
+        <Link href="/properties/new" className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
           New lease
         </Link>
       </div>
       <ul className="grid gap-4 sm:grid-cols-2">
         {leases.map((l) => (
-          <li key={l.id} className="rounded-xl border border-stone-200 bg-white p-5">
-            <h2 className="font-semibold">{l.propertyName}</h2>
+          <li key={l.id} className="rounded-2xl bg-white shadow-card p-5">
+            <h2 className="text-lg font-semibold tracking-tight">{l.propertyName}</h2>
             <p className="text-sm text-stone-600">{l.address}</p>
             <p className="mt-3 text-sm">
               {l.tenant?.name ?? "Invite pending"} · {formatUsd(l.rentCents)} / month · due day {l.dueDay}

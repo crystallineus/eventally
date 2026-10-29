@@ -27,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Suspense fallback={<div className="sticky top-0 z-20 h-[57px] border-b border-stone-200 bg-white" />}>
           <Header />
         </Suspense>
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">{children}</main>
         <Footer />
       </body>
     </html>

@@ -27,7 +27,7 @@ export function AddEvidenceForm({ claimId }: { claimId: string }) {
           }
         });
       }}
-      className="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-dashed border-stone-300 bg-white p-4 text-sm"
+      className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border border-dashed border-stone-300 bg-white p-4 text-sm"
     >
       <input type="hidden" name="claimId" value={claimId} />
       <label className="text-stone-700">
@@ -39,7 +39,7 @@ export function AddEvidenceForm({ claimId }: { claimId: string }) {
         </select>
       </label>
       <input name={kind} type="file" accept="image/*" multiple required className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-stone-100 file:px-3 file:py-1.5" />
-      <button disabled={busy} className="rounded-lg bg-stone-900 px-3 py-1.5 font-medium text-white hover:bg-stone-700 disabled:opacity-50">
+      <button disabled={busy} className="rounded-full bg-stone-900 px-3 py-1.5 font-medium text-white hover:bg-stone-700 disabled:opacity-50">
         {busy ? "Uploading…" : "Upload"}
       </button>
       {(resizeError ?? state.error) && (

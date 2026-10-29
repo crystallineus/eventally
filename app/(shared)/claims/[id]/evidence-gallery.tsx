@@ -38,7 +38,7 @@ export function EvidenceGallery({ claimId, photos }: { claimId: string; photos: 
         {KINDS.map(({ kind, title }) => {
           const items = ordered.filter((p) => p.kind === kind);
           return (
-            <div key={kind} className="rounded-xl border border-stone-200 bg-white p-3">
+            <div key={kind} className="rounded-2xl bg-white shadow-card p-3">
               <h3 className="mb-2 text-sm font-medium">{title}</h3>
               {items.length === 0 ? (
                 <p className="text-sm text-stone-400">None yet</p>

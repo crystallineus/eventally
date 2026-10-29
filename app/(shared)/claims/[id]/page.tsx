@@ -305,6 +305,10 @@ function AiReview({
       <ol className="mt-3 space-y-2">
         {groupSteps(shown).map((row) => {
           const style = STATUS_STYLE[row.status];
+          // A passed check needs only its title; its details move into the ? tip. The proposal is
+          // the outcome itself, so it always shows.
+          const quiet = row.status === "pass" && row.type !== "agent.propose_split";
+          const tip = quiet ? [...row.summaries, ...row.whys] : row.whys;
           return (
             <li key={row.id} className="flex gap-3 text-sm">
               <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-xs font-bold ${style.className}`} aria-label={row.status}>
@@ -313,9 +317,10 @@ function AiReview({
               <div>
                 <p className="flex items-center gap-1.5 font-medium text-stone-900">
                   {STEP_LABELS[row.type]}
-                  {row.whys.length > 0 && <WhyTip why={row.whys} />}
+                  {tip.length > 0 && <WhyTip why={tip} />}
                 </p>
-                {row.type !== "agent.request_more_evidence" &&
+                {!quiet &&
+                  row.type !== "agent.request_more_evidence" &&
                   row.summaries.map((summary) => (
                     <p key={summary} className="text-stone-700">
                       {summary}

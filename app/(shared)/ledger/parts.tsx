@@ -15,7 +15,7 @@ export const CLOSED: Claim["status"][] = ["settled", "withdrawn", "paid_out"];
 
 export function MoreLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link href={href} className="mt-3 inline-block text-sm font-medium text-stone-600 hover:text-stone-900">
+    <Link href={href} className="mt-3 inline-block text-sm font-medium text-sky-700 hover:text-sky-900">
       {label} →
     </Link>
   );
@@ -36,7 +36,7 @@ export function MonthCard({
   link?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-stone-200 bg-white p-5">
+    <div className="rounded-2xl bg-white shadow-card p-5">
       <div className="flex items-baseline justify-between">
         <h3 className="font-medium">
           {link ? (
@@ -65,7 +65,7 @@ export function MonthCard({
               href={p.invoice.payerUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-lg bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]"
+              className="rounded-full bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]"
             >
               Pay with PayPal
             </a>
@@ -82,7 +82,7 @@ export function MonthCard({
 
 export function ClaimList({ claims, lease }: { claims: Claim[]; lease: LeaseWithParties }) {
   return (
-    <ul className="divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white">
+    <ul className="divide-y divide-stone-100 rounded-2xl bg-white shadow-card">
       {claims.map((c) => (
         <li key={c.id}>
           <Link href={`/claims/${c.id}`} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 hover:bg-stone-50">

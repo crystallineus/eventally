@@ -14,13 +14,13 @@ export function SplitForm({ claimId, hasProposal }: { claimId: string; hasPropos
         <input type="hidden" name="claimId" value={claimId} />
         <label className="text-stone-700">
           Landlord pays (%)
-          <input name="landlordPercent" type="number" min={0} max={100} step="0.01" defaultValue={100} required className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2" />
+          <input name="landlordPercent" type="number" min={0} max={100} step="0.01" defaultValue={100} required className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2" />
         </label>
         <label className="text-stone-700">
           Why
-          <input name="rationale" required placeholder="Plumbing repairs not caused by the tenant are the landlord's responsibility (lease §12a)." className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2" />
+          <input name="rationale" required placeholder="Plumbing repairs not caused by the tenant are the landlord's responsibility (lease §12a)." className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2" />
         </label>
-        <button disabled={pending} className="rounded-lg bg-stone-900 px-4 py-2 font-medium text-white hover:bg-stone-700 disabled:opacity-50">
+        <button disabled={pending} className="rounded-full bg-stone-900 px-4 py-2 font-medium text-white hover:bg-stone-700 disabled:opacity-50">
           {pending ? "Saving…" : "Propose"}
         </button>
         <p className="text-xs text-stone-500 sm:col-span-3">Proposing counts as your approval. The other side then approves or proposes something else.</p>

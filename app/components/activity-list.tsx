@@ -17,7 +17,7 @@ export function ActivityList({ events }: { events: ActivityEvent[] }) {
       <ActivityItems events={events.slice(0, PREVIEW)} />
       {rest.length > 0 && (
         <details className="group mt-2">
-          <summary className="cursor-pointer list-none text-sm font-medium text-stone-600 hover:text-stone-900">
+          <summary className="cursor-pointer list-none text-sm font-medium text-sky-700 hover:text-sky-900">
             <span className="group-open:hidden">Show more ({rest.length})</span>
             <span className="hidden group-open:inline">Show less</span>
           </summary>
@@ -32,9 +32,9 @@ export function ActivityList({ events }: { events: ActivityEvent[] }) {
 
 function ActivityItems({ events }: { events: ActivityEvent[] }) {
   return (
-    <ol className="space-y-2 text-sm">
+    <ol className="divide-y divide-stone-100 rounded-2xl bg-white text-sm shadow-card">
       {events.map((e) => (
-        <li key={e.id} className="flex gap-3 rounded-lg bg-white px-4 py-2 ring-1 ring-stone-200">
+        <li key={e.id} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-4 py-2.5 sm:flex-nowrap">
           <time className="shrink-0 font-mono text-xs leading-5 text-stone-500" dateTime={e.createdAt.toISOString()}>
             {formatDateTime(e.createdAt)}
           </time>
@@ -44,9 +44,10 @@ function ActivityItems({ events }: { events: ActivityEvent[] }) {
               {ASSISTANT.name}
             </span>
           ) : (
-            <span className="shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 capitalize text-stone-600">{e.actor}</span>
+            <span className="h-5 shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 capitalize text-stone-600">{e.actor}</span>
           )}
-          <span className="text-stone-800">{describeEvent(e.type, e.data)}</span>
+          {/* On phones the text takes its own line under the time and actor. */}
+          <span className="w-full text-stone-800 sm:w-auto">{describeEvent(e.type, e.data)}</span>
         </li>
       ))}
     </ol>

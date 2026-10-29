@@ -35,7 +35,7 @@ export default async function Home() {
             key={u.id}
             name="userId"
             value={u.id}
-            className="rounded-xl border border-stone-200 bg-white p-4 text-left shadow-sm hover:border-stone-400"
+            className="rounded-2xl bg-white shadow-card p-4 text-left shadow-sm hover:border-stone-400"
           >
             <span className="block font-medium">{u.name}</span>
             <span className="block text-sm capitalize text-stone-500">

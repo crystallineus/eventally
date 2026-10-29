@@ -21,7 +21,7 @@ describe("condenseReviews", () => {
 
     expect(condensed.map((e) => e.type)).toEqual(["evidence.added", REVIEW_SUMMARY, "claim.submitted"]);
     const summary = condensed[1];
-    expect(describeEvent(summary.type, summary.data)).toBe("AI review: 2 of 3 checks passed · asked the tenant for more evidence");
+    expect(describeEvent(summary.type, summary.data)).toBe("Aunt Tally's review: 2 of 3 checks passed · asked the tenant for more evidence");
   });
 
   it("summarizes each review run separately", () => {
@@ -36,8 +36,8 @@ describe("condenseReviews", () => {
     ];
     const condensed = condenseReviews([...chronological].reverse());
     expect(condensed.map((e) => describeEvent(e.type, e.data))).toEqual([
-      "AI review: 1 of 1 checks passed · proposed landlord pays $240.00, tenant pays $0.00",
-      "AI review: 1 of 1 checks passed · ended without a decision",
+      "Aunt Tally's review: 1 of 1 checks passed · proposed landlord pays $240.00, tenant pays $0.00",
+      "Aunt Tally's review: 1 of 1 checks passed · ended without a decision",
     ]);
   });
 
@@ -79,7 +79,7 @@ describe("proposalHistory", () => {
     ];
     const history = proposalHistory([...chronological].reverse());
     expect(history).toHaveLength(2);
-    expect(history[0]).toMatchObject({ by: "EvenTally AI", landlordShareCents: 24000, rationale: "12(a)\n\nLease: §12" });
+    expect(history[0]).toMatchObject({ by: "Aunt Tally", landlordShareCents: 24000, rationale: "12(a)\n\nLease: §12" });
     expect(history[0].approvals.map((a) => a.by)).toEqual(["Maya Chen"]);
     expect(history[1]).toMatchObject({ by: "Tom Becker", landlordShareCents: 12000, approvals: [] });
   });

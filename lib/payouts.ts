@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { viaMeta } from "@/lib/via";
 import { formatUsd } from "@/lib/money";
 import { createPayout, getPayout, PayPalError } from "@/lib/paypal";
 import type { User } from "@/lib/session";
@@ -38,7 +39,7 @@ export async function payClaimNow(user: User, claimId: string): Promise<Payout> 
       claimId: claim.id,
       actor: "landlord",
       type: "payout.started",
-      data: { by: user.name, amountCents: created.amountCents },
+      data: { ...viaMeta(), by: user.name, amountCents: created.amountCents },
     });
     return created;
   });

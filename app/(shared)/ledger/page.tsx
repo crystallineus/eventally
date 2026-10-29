@@ -1,19 +1,20 @@
 import Link from "next/link";
-import { formatDateTime } from "@/lib/time";
-import { ClaimStatus } from "@/app/components/claim-status";
 import { condenseReviews } from "@/app/components/event-label";
 import { listClaims } from "@/lib/claims";
 import { getLedger, getLeasesForUser, roleIn, type LeaseWithParties } from "@/lib/ledger";
 import { formatUsd } from "@/lib/money";
 import { formatLeaseTerm } from "@/lib/period";
 import { requireUser } from "@/lib/session";
-import { PaymentWatcher, RefreshInvoiceButton, SendInvoiceButton } from "./invoice-controls";
+import { PaymentWatcher, SendInvoiceButton } from "./invoice-controls";
+import { ClaimList, CLOSED, Lines, MonthCard, MoreLink, TotalRow } from "./parts";
+import { ASSISTANT } from "@/lib/persona";
 import { ActivityList } from "@/app/components/activity-list";
+import { Assistant } from "@/app/components/assistant";
 
 export default async function LedgerPage({ searchParams }: PageProps<"/ledger">) {
   const user = await requireUser();
   const leases = await getLeasesForUser(user.id);
-  const { lease: leaseParam } = await searchParams;
+  const { lease: leaseParam, vault } = await searchParams;
   const lease = leases.find((l) => l.id === leaseParam) ?? leases[0];
 
   if (!lease) {
@@ -23,12 +24,15 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
   const [ledger, claims] = await Promise.all([getLedger(lease), listClaims(lease.id)]);
   const role = roleIn(lease, user.id);
 
+  const openClaims = claims.filter((c) => !CLOSED.includes(c.status));
+  const recentMonths = ledger.periods.filter((p, i) => i === 0 || (p.invoice && p.invoice.status !== "paid"));
   const awaitingPayment = ledger.periods.some((p) => p.invoice?.status === "sent");
   const outstanding = ledger.periods.find((p) => p.invoice?.status === "sent" || p.invoice?.status === "draft");
 
   return (
     <div className="space-y-8">
       {awaitingPayment && <PaymentWatcher />}
+      <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} />
       {leases.length > 1 && (
         <nav className="flex flex-wrap gap-2 text-sm">
           {leases.map((l) => (
@@ -56,30 +60,15 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
             New claim
           </Link>
         </div>
-        {claims.length === 0 ? (
+        {openClaims.length === 0 ? (
           <p className="rounded-xl border border-stone-200 bg-white p-5 text-sm text-stone-600">
-            No claims yet. Paid for a repair? Submit the receipt and photos here.
+            {claims.length ? "No open claims." : "No claims yet."} Paid for a repair? Submit the receipt and photos here.
           </p>
         ) : (
-          <ul className="divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white">
-            {claims.map((c) => (
-              <li key={c.id}>
-                <Link href={`/claims/${c.id}`} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 hover:bg-stone-50">
-                  <span>
-                    <span className="font-medium">{c.title}</span>
-                    <span className="ml-2 text-sm text-stone-500">
-                      {c.submittedBy === lease.landlordId ? "paid by landlord" : "paid by tenant"}
-                      {c.tenantWantsPayout && (c.status === "approved" || c.status === "awaiting_approval") && " · asked to be paid back now"}
-                    </span>
-                  </span>
-                  <span className="flex items-center gap-3">
-                    <ClaimStatus status={c.status} />
-                    <span className="tabular-nums">{formatUsd(c.amountCents ?? 0)}</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <ClaimList claims={openClaims} lease={lease} />
+        )}
+        {claims.length > openClaims.length && (
+          <MoreLink href={`/claims?lease=${lease.id}`} label={`Show all ${claims.length} claims (${claims.length - openClaims.length} closed)`} />
         )}
       </section>
 
@@ -104,42 +93,19 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         )}
       </section>
 
+      {role === "tenant" && <SavedPayPal email={user.paypalVaultId ? (user.paypalVaultEmail ?? "your PayPal") : null} notice={typeof vault === "string" ? vault : null} />}
+
       <section>
-        <h2 className="mb-3 font-semibold">History</h2>
+        <h2 className="mb-3 font-semibold">Rent</h2>
         <div className="space-y-4">
-          {ledger.periods.map((p) => (
-            <div key={p.period} className="rounded-xl border border-stone-200 bg-white p-5">
-              <div className="flex items-baseline justify-between">
-                <h3 className="font-medium">{p.label}</h3>
-                <StatusBadge invoiceStatus={p.invoice?.status ?? null} settled={p.balanceCents === 0} />
-              </div>
-              <Lines lines={p.entries.map((e) => ({ name: e.description, amountCents: e.amountCents }))} />
-              <TotalRow label="Balance" cents={p.balanceCents} />
-              {p.invoice?.status === "paid" && p.invoice.totalCents > 0 && (
-                <p className="mt-3 text-sm text-stone-500">
-                  {role === "tenant"
-                    ? `Paid through PayPal${p.invoice.paidAt ? ` on ${formatDateTime(p.invoice.paidAt)}` : ""}. It may take a little while to show up in ${lease.landlord.name.split(" ")[0]}'s PayPal activity.`
-                    : `PayPal confirmed this payment${p.invoice.paidAt ? ` on ${formatDateTime(p.invoice.paidAt)}` : ""}. If it isn't in your PayPal activity yet, give it a few minutes; PayPal may also hold funds for a while on some accounts.`}
-                </p>
-              )}
-              {p.invoice && p.invoice.status !== "paid" && (
-                <div className="mt-3 flex flex-wrap items-center gap-4">
-                  {role === "tenant" && p.invoice.status === "sent" && p.invoice.payerUrl && (
-                    <a
-                      href={p.invoice.payerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]"
-                    >
-                      Pay with PayPal
-                    </a>
-                  )}
-                  {role === "landlord" && <RefreshInvoiceButton invoiceId={p.invoice.id} draft={p.invoice.status === "draft"} />}
-                </div>
-              )}
-            </div>
+          {/* Anything not paid yet, plus the latest month; older months are on the history page. */}
+          {recentMonths.map((p) => (
+            <MonthCard key={p.period} p={p} lease={lease} role={role} canPaySaved={!!user.paypalVaultId} />
           ))}
         </div>
+        {ledger.periods.length > recentMonths.length && (
+          <MoreLink href={`/ledger/history?lease=${lease.id}`} label={`Show all ${ledger.periods.length} months`} />
+        )}
       </section>
 
       <section>
@@ -150,6 +116,39 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         <ActivityList events={condenseReviews(ledger.events)} />
       </section>
     </div>
+  );
+}
+
+const VAULT_NOTICE: Record<string, string> = {
+  saved: "Saved. You can now pay rent with one press of Confirm.",
+  cancelled: "Nothing was saved.",
+  failed: "PayPal couldn't save it. Try again in a moment.",
+  removed: "Removed. Rent is paid with the invoice link again.",
+};
+
+/** Tenant: save a PayPal once (PayPal Vault) so rent can be paid without logging in each month. */
+function SavedPayPal({ email, notice }: { email: string | null; notice: string | null }) {
+  return (
+    <section className="rounded-xl border border-stone-200 bg-white p-5">
+      <h2 className="font-semibold">Saved PayPal for rent</h2>
+      {email ? (
+        <p className="mt-1 text-sm text-stone-600">
+          {email} is saved. When a rent invoice arrives, you or {ASSISTANT.name} can pay it with one press of Confirm; nothing is charged without it.
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-stone-600">
+          Save your PayPal once, and paying each month&apos;s invoice becomes one press of Confirm, here or in a chat with {ASSISTANT.name}. You approve it on PayPal and can remove it any time.
+        </p>
+      )}
+      <form method="post" action={email ? "/api/vault/remove" : "/api/vault/start"} className="mt-3 flex flex-wrap items-center gap-3">
+        {email ? (
+          <button className="text-sm text-stone-600 underline hover:text-stone-900">Remove saved PayPal</button>
+        ) : (
+          <button className="rounded-lg bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]">Save my PayPal for rent</button>
+        )}
+        {notice && VAULT_NOTICE[notice] && <span className="text-sm text-stone-500">{VAULT_NOTICE[notice]}</span>}
+      </form>
+    </section>
   );
 }
 
@@ -185,38 +184,4 @@ function Field({ label, value }: { label: string; value: string }) {
       <dd className="font-medium">{value}</dd>
     </div>
   );
-}
-
-function Lines({ lines }: { lines: { name: string; amountCents: number }[] }) {
-  return (
-    <ul className="mt-3 divide-y divide-stone-100 text-sm">
-      {lines.map((l, i) => (
-        <li key={i} className="flex justify-between gap-4 py-2">
-          <span>{l.name}</span>
-          <span className={`tabular-nums ${l.amountCents < 0 ? "text-emerald-700" : ""}`}>{formatUsd(l.amountCents)}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function TotalRow({ label, cents }: { label: string; cents: number }) {
-  return (
-    <div className="mt-1 flex justify-between border-t border-stone-200 pt-2 text-sm font-semibold">
-      <span>{label}</span>
-      <span className="tabular-nums">{formatUsd(cents)}</span>
-    </div>
-  );
-}
-
-function StatusBadge({ invoiceStatus, settled }: { invoiceStatus: "draft" | "sent" | "paid" | "cancelled" | null; settled: boolean }) {
-  const [label, className] =
-    invoiceStatus === "sent"
-      ? ["Invoice sent · awaiting payment", "bg-sky-50 text-sky-700"]
-      : invoiceStatus === "draft"
-        ? ["Not sent yet", "bg-red-50 text-red-700"]
-        : settled
-          ? ["Paid", "bg-emerald-50 text-emerald-700"]
-          : ["Open", "bg-amber-50 text-amber-700"];
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${className}`}>{label}</span>;
 }

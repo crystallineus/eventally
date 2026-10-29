@@ -55,6 +55,9 @@ async function main() {
       data: { landlord: tom.name, tenant: maya.name, rentCents: lease.rentCents },
     });
 
+    // Start the demo with an empty bell: the seeded history isn't news.
+    await tx.update(schema.users).set({ notificationsSeenAt: new Date() });
+
     console.log(`Seeded lease ${lease.id}: ${tom.name} → ${maya.name}, rent $2,000.00, October paid`);
   });
 }

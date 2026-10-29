@@ -3,6 +3,7 @@ import Link from "next/link";
 import { formatDateTime } from "@/lib/time";
 import { notFound } from "next/navigation";
 import { ActivityList } from "@/app/components/activity-list";
+import { Assistant } from "@/app/components/assistant";
 import { ClaimStatus } from "@/app/components/claim-status";
 import { SubmitButton } from "@/app/components/submit-button";
 import { condenseReviews, describeEvent, groupSteps, proposalHistory, type Proposal } from "@/app/components/event-label";
@@ -20,6 +21,8 @@ import { EvidenceGallery } from "./evidence-gallery";
 import { ReviewRunner } from "./review-runner";
 import { SplitForm } from "./split-form";
 import { WithdrawButton } from "./withdraw-button";
+import { AuntTallyAvatar } from "@/app/components/aunt-tally";
+import { ASSISTANT } from "@/lib/persona";
 
 const KIND_LABELS = { receipt: "Receipt", before: "Before", after: "After" } as const;
 
@@ -59,6 +62,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
 
   return (
     <div className="space-y-8">
+      <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} />
       <Link href={`/ledger?lease=${lease.id}`} className="text-sm text-stone-600 hover:text-stone-900">
         ← {lease.propertyName} ledger
       </Link>
@@ -68,13 +72,13 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{claim.title}</h1>
             <p className="text-sm text-stone-600">
-              Submitted by {submitter} ({tenantPaid ? "tenant" : "landlord"}) · reported{" "}
-              {claim.issueReportedAt.toLocaleDateString("en-US", { dateStyle: "medium", timeZone: "UTC" })}
+              Submitted by {submitter} ({tenantPaid ? "tenant" : "landlord"})
+              {claim.issueReportedAt && ` · reported ${claim.issueReportedAt.toLocaleDateString("en-US", { dateStyle: "medium", timeZone: "UTC" })}`}
             </p>
           </div>
           <div className="text-right">
             <ClaimStatus status={claim.status} />
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{formatUsd(claim.amountCents ?? 0)}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">{claim.amountCents == null ? "—" : formatUsd(claim.amountCents)}</p>
             <p className="text-xs text-stone-500">paid by {submitter}</p>
             {open && claim.submittedBy === user.id && !claim.reviewStartedAt && (
               <EditAmount claimId={claim.id} amountCents={claim.amountCents ?? 0} receiptTotalCents={receiptTotalCents} />
@@ -96,13 +100,13 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
             {reviewsLeft > 0 ? (
               claim.status === "awaiting_approval" && (
                 <>
-                  <p className="mt-2">Ask the AI to look again; the current proposal moves to the history.</p>
+                  <p className="mt-2">Ask Aunt Tally to look again; the current proposal moves to the history.</p>
                   <ReviewAgainButton claimId={claim.id} reviewsLeft={reviewsLeft} />
                 </>
               )
             ) : (
               <p className="mt-2">
-                The AI has reviewed this claim {MAX_REVIEWS} times, which is the limit, so it won&apos;t check these changes. Before
+                Aunt Tally has reviewed this claim {MAX_REVIEWS} times, which is the limit, so she won&apos;t check these changes. Before
                 approving, look at the new evidence yourself; photos added since the review are marked &ldquo;New&rdquo; below.
               </p>
             )}
@@ -112,23 +116,24 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
 
       {claim.status === "needs_evidence" && (
         <section className="rounded-xl border border-amber-300 bg-amber-50 p-5">
-          <h2 className="font-semibold text-amber-900">
+          <h2 className="flex items-center gap-2 font-semibold text-amber-900">
+            {evidenceRequest && <AuntTallyAvatar size={26} />}
             {evidenceRequest
-              ? `EvenTally AI needs more evidence from the ${String((evidenceRequest.data as { result?: { from?: string } }).result?.from ?? "submitter")}`
+              ? `Aunt Tally needs more evidence from the ${String((evidenceRequest.data as { result?: { from?: string } }).result?.from ?? "submitter")}`
               : "Waiting for changes"}
           </h2>
           {evidenceRequest && <p className="mt-2 whitespace-pre-line text-amber-950">{describeEvent(evidenceRequest.type, evidenceRequest.data)}</p>}
           {reviewsLeft > 0 ? (
             <>
               <p className="mt-2 text-sm text-amber-800">
-                Make all your changes first (photos, amount), then ask the AI to review again. Can&apos;t provide something?
+                Make all your changes first (photos, amount), then ask Aunt Tally to review again. Can&apos;t provide something?
                 Either of you can propose a split under &ldquo;Who pays&rdquo; and the other side reviews it.
               </p>
               <ReviewAgainButton claimId={claim.id} reviewsLeft={reviewsLeft} />
             </>
           ) : (
             <p className="mt-2 text-sm text-amber-800">
-              The AI has reviewed this claim {MAX_REVIEWS} times, which is the limit. Propose a split under &ldquo;Who pays&rdquo;
+              Aunt Tally has reviewed this claim {MAX_REVIEWS} times, which is the limit. Propose a split under &ldquo;Who pays&rdquo;
               and the other side reviews it.
             </p>
           )}
@@ -157,7 +162,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           {claim.landlordShareCents != null && latestProposal && (
             <span className="text-xs text-stone-500">
               {latestProposal.actor === "agent"
-                ? "Proposed by EvenTally AI · both of you need to approve"
+                ? "Proposed by Aunt Tally (AI) · both of you need to approve"
                 : `Proposed by ${names.get(String((latestProposal.data as { by?: string }).by)) ?? (latestProposal.data as { by?: string }).by}`}
             </span>
           )}
@@ -281,7 +286,7 @@ function AiReview({
     <section className="rounded-xl border border-sky-200 bg-white p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-semibold">
-          AI review
+          {ASSISTANT.name}&apos;s review
           {reviewNumber > 0 && (
             <span className="ml-2 text-sm font-normal text-stone-500">
               Review {Math.min(reviewNumber, MAX_REVIEWS)} of {MAX_REVIEWS}
@@ -289,7 +294,7 @@ function AiReview({
             </span>
           )}
         </h2>
-        <span className="text-xs text-stone-500">EvenTally AI · checks are hints, not verdicts</span>
+        <span className="text-xs text-stone-500">{ASSISTANT.disclosure} · her checks are hints, not verdicts</span>
       </div>
       {children && <div className="mt-3">{children}</div>}
       {reviewing && (
@@ -300,6 +305,10 @@ function AiReview({
       <ol className="mt-3 space-y-2">
         {groupSteps(shown).map((row) => {
           const style = STATUS_STYLE[row.status];
+          // A passed check needs only its title; its details move into the ? tip. The proposal is
+          // the outcome itself, so it always shows.
+          const quiet = row.status === "pass" && row.type !== "agent.propose_split";
+          const tip = quiet ? [...row.summaries, ...row.whys] : row.whys;
           return (
             <li key={row.id} className="flex gap-3 text-sm">
               <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-xs font-bold ${style.className}`} aria-label={row.status}>
@@ -308,9 +317,10 @@ function AiReview({
               <div>
                 <p className="flex items-center gap-1.5 font-medium text-stone-900">
                   {STEP_LABELS[row.type]}
-                  {row.whys.length > 0 && <WhyTip why={row.whys} />}
+                  {tip.length > 0 && <WhyTip why={tip} />}
                 </p>
-                {row.type !== "agent.request_more_evidence" &&
+                {!quiet &&
+                  row.type !== "agent.request_more_evidence" &&
                   row.summaries.map((summary) => (
                     <p key={summary} className="text-stone-700">
                       {summary}

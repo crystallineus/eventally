@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
 import { todayInAppZone } from "@/lib/time";
 import { db, schema } from "@/lib/db";
+import { viaMeta } from "@/lib/via";
 import { planNextInvoice } from "@/lib/ledger";
 import { formatUsd, parseUsd, type Cents } from "@/lib/money";
 import { createAndSendInvoice, getInvoice, PayPalError } from "@/lib/paypal";
@@ -83,7 +84,7 @@ export async function issueNextInvoice(user: User, leaseId: string): Promise<Inv
       leaseId: lease.id,
       actor: "landlord",
       type: "invoice.created",
-      data: { by: user.name, period: plan.label, totalCents: plan.invoice.totalCents, claims: claimIds.length },
+      data: { ...viaMeta(), by: user.name, period: plan.label, totalCents: plan.invoice.totalCents, claims: claimIds.length },
     });
     return row;
   });
@@ -148,7 +149,7 @@ export async function sendInvoice(invoiceId: string): Promise<Invoice> {
   }
 }
 
-type Payment = { paidCents: Cents; paymentId: string | null; paypalEventId: string | null; source: "webhook" | "sync" | "zero_total" };
+type Payment = { paidCents: Cents; paymentId: string | null; paypalEventId: string | null; source: "webhook" | "sync" | "zero_total" | "vault" };
 
 /**
  * Mark an invoice paid: record the payment in the ledger and settle its claims. Idempotent: the
@@ -183,10 +184,11 @@ export async function settleInvoice(invoiceId: string, payment: Payment): Promis
     }
     await tx.insert(schema.events).values({
       leaseId: invoice.leaseId,
-      actor: payment.source === "webhook" ? "paypal" : "system",
+      actor: payment.source === "webhook" ? "paypal" : payment.source === "vault" ? "tenant" : "system",
       type: "invoice.paid",
       paypalEventId: payment.paypalEventId,
       data: {
+        ...(payment.source === "vault" ? viaMeta() : {}),
         totalCents: invoice.totalCents,
         paidCents: payment.paidCents,
         paymentId: payment.paymentId,
@@ -194,7 +196,9 @@ export async function settleInvoice(invoiceId: string, payment: Payment): Promis
         summary:
           payment.source === "zero_total"
             ? "Credits covered this month's rent, so there was nothing to pay."
-            : `Paid ${formatUsd(payment.paidCents)} through PayPal.`,
+            : payment.source === "vault"
+              ? `Paid ${formatUsd(payment.paidCents)} with the tenant's saved PayPal.`
+              : `Paid ${formatUsd(payment.paidCents)} through PayPal.`,
       },
     });
     return "settled";

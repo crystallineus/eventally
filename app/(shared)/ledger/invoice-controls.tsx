@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
-import { refreshInvoice, sendNextInvoice, type InvoiceFormState } from "./actions";
+import { payWithSaved, refreshInvoice, sendNextInvoice, type InvoiceFormState } from "./actions";
 
 export function SendInvoiceButton({ leaseId }: { leaseId: string }) {
   const [state, action, pending] = useActionState<InvoiceFormState, FormData>(sendNextInvoice, { error: null });
@@ -27,6 +27,20 @@ export function RefreshInvoiceButton({ invoiceId, draft }: { invoiceId: string; 
         {pending ? "Checking…" : draft ? "Retry sending to PayPal" : "Check payment with PayPal"}
       </button>
       {(state.error ?? state.note) && <span className={`text-sm ${state.error ? "text-red-700" : "text-stone-500"}`}>{state.error ?? state.note}</span>}
+    </form>
+  );
+}
+
+export function PayWithSavedButton({ leaseId, invoiceId, label }: { leaseId: string; invoiceId: string; label: string }) {
+  const [state, action, pending] = useActionState<InvoiceFormState, FormData>(payWithSaved, { error: null });
+  return (
+    <form action={action} className="inline-flex flex-wrap items-center gap-2">
+      <input type="hidden" name="leaseId" value={leaseId} />
+      <input type="hidden" name="invoiceId" value={invoiceId} />
+      <button disabled={pending} className="rounded-lg bg-[#0070ba] px-4 py-2 text-sm font-medium text-white hover:bg-[#005ea6] disabled:opacity-50">
+        {pending ? "Paying…" : label}
+      </button>
+      {state.error && <span className="text-sm text-red-700">{state.error}</span>}
     </form>
   );
 }

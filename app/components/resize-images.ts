@@ -5,7 +5,7 @@ const MAX_EDGE = 1600;
 const QUALITY = 0.85;
 export const MAX_TOTAL_BYTES = 4 * 1024 * 1024;
 
-async function resize(file: File): Promise<File> {
+export async function resizeImage(file: File): Promise<File> {
   if (!file.type.startsWith("image/")) throw new Error(`${file.name} is not an image`);
   const bitmap = await createImageBitmap(file).catch(() => {
     throw new Error(`Can't read ${file.name}. Try a JPEG or PNG photo.`);
@@ -31,7 +31,7 @@ export async function withResizedImages(form: HTMLFormElement): Promise<FormData
   for (const [name, value] of source.entries()) {
     if (value instanceof File) {
       if (value.size === 0) continue; // empty file input
-      const resized = await resize(value);
+      const resized = await resizeImage(value);
       total += resized.size;
       out.append(name, resized);
     } else {

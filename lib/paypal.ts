@@ -161,3 +161,80 @@ export function createPayout(input: { senderBatchId: string; receiverEmail: stri
 export function getPayout(batchId: string) {
   return call<PayoutBatch>("GET", `/v1/payments/payouts/${encodeURIComponent(batchId)}`);
 }
+
+// ---- Vault (tenant saves their PayPal once; Aunt Tally pays rent with it when they confirm) ----
+// Verified in spikes/paypal/06-vault.mjs: setup token -> buyer approves -> payment token (vault id);
+// an order created with the vault id completes right away, no buyer login.
+
+/** Start saving the buyer's PayPal. Returns the setup token and the link they approve it at. */
+export async function createVaultSetup(returnUrl: string, cancelUrl: string) {
+  const setup = await call<{ id: string; links?: { rel: string; href: string }[] }>("POST", "/v3/vault/setup-tokens", {
+    payment_source: {
+      paypal: {
+        description: "EvenTally rent payments",
+        usage_type: "MERCHANT",
+        customer_type: "CONSUMER",
+        experience_context: { brand_name: "EvenTally", return_url: returnUrl, cancel_url: cancelUrl, shipping_preference: "NO_SHIPPING" },
+      },
+    },
+  });
+  const approveUrl = setup.links?.find((l) => l.rel === "approve")?.href;
+  if (!approveUrl) throw new Error("PayPal didn't return an approval link");
+  return { setupToken: setup.id, approveUrl };
+}
+
+/** After the buyer approved: turn the setup token into a saved payment method. */
+export async function createVaultToken(setupToken: string) {
+  const token = await call<{ id: string; payment_source?: { paypal?: { email_address?: string } } }>("POST", "/v3/vault/payment-tokens", {
+    payment_source: { token: { id: setupToken, type: "SETUP_TOKEN" } },
+  });
+  return { vaultId: token.id, email: token.payment_source?.paypal?.email_address ?? null };
+}
+
+export async function deleteVaultToken(vaultId: string) {
+  await call("DELETE", `/v3/vault/payment-tokens/${encodeURIComponent(vaultId)}`).catch((err) => {
+    if (!(err instanceof PayPalError && err.status === 404)) throw err;
+  });
+}
+
+type Order = {
+  id: string;
+  status: string;
+  purchase_units?: { payments?: { captures?: { id: string; status: string; amount: { value: string } }[] } }[];
+};
+
+/**
+ * Charge a saved PayPal. `requestId` makes it idempotent: PayPal returns the same order for a repeat
+ * of the same id instead of charging again, so use one per thing being paid (the invoice id).
+ */
+export async function chargeVault(input: { vaultId: string; amountCents: Cents; description: string; invoiceId: string; requestId: string }) {
+  let order = await call<Order>(
+    "POST",
+    "/v2/checkout/orders",
+    {
+      intent: "CAPTURE",
+      purchase_units: [{ amount: usd(input.amountCents), description: input.description, invoice_id: input.invoiceId }],
+      payment_source: { paypal: { vault_id: input.vaultId } },
+    },
+    { "PayPal-Request-Id": input.requestId },
+  );
+  if (order.status === "APPROVED") {
+    order = await call<Order>("POST", `/v2/checkout/orders/${order.id}/capture`, {}, { "PayPal-Request-Id": `${input.requestId}-capture` });
+  }
+  const capture = order.purchase_units?.[0]?.payments?.captures?.[0];
+  return { orderId: order.id, status: order.status, captureId: capture?.id ?? null, captureStatus: capture?.status ?? null };
+}
+
+/**
+ * Record a payment made outside the invoice (here: a vaulted charge) so PayPal shows it as paid
+ * (MARKED_AS_PAID). Don't pass the capture as `payment_id`: PayPal then looks for it among the
+ * invoice's own transactions and answers 404. It goes in the note instead.
+ */
+export function recordInvoicePayment(paypalInvoiceId: string, input: { amountCents: Cents; date: string; note: string }) {
+  return call("POST", `/v2/invoicing/invoices/${encodeURIComponent(paypalInvoiceId)}/payments`, {
+    method: "PAYPAL",
+    payment_date: input.date,
+    amount: usd(input.amountCents),
+    note: input.note,
+  });
+}

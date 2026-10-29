@@ -1,14 +1,24 @@
 import { formatUsd } from "@/lib/money";
+import { ASSISTANT } from "@/lib/persona";
 
-// Human-readable lines for the events log. Unknown types fall back to the raw type.
+// Human-readable lines for the events log. Unknown types fall back to the raw type. Actions a person
+// confirmed in Aunt Tally's chat get "(via Aunt Tally)".
 export function describeEvent(type: string, data: unknown): string {
+  const text = describe(type, data);
+  const via = (data as { via?: unknown } | null)?.via;
+  return typeof via === "string" && via.startsWith(ASSISTANT.name) && !text.includes(ASSISTANT.name) ? `${text} (via ${ASSISTANT.name})` : text;
+}
+
+function describe(type: string, data: unknown): string {
   const d = (data ?? {}) as Record<string, unknown> & { result?: { summary?: string } };
   const by = typeof d.by === "string" ? d.by : "Someone";
   switch (type) {
     case "lease.created":
       return `Lease created: ${d.landlord} rents to ${d.tenant}.`;
     case "claim.submitted":
-      return `${by} submitted a claim for ${formatUsd(Number(d.amountCents ?? 0))}.`;
+      return d.amountCents == null ? `${by} submitted a claim.` : `${by} submitted a claim for ${formatUsd(Number(d.amountCents))}.`;
+    case "claim.filled_from_receipt":
+      return `${ASSISTANT.name} filled in ${[d.amountCents != null && `the amount (${formatUsd(Number(d.amountCents))})`, d.date && `the date (${d.date})`].filter(Boolean).join(" and ")} from the receipt.`;
     case "evidence.removed":
       return `${by} removed a ${String(d.kind ?? "")} photo.`;
     case "evidence.added":
@@ -22,7 +32,7 @@ export function describeEvent(type: string, data: unknown): string {
     case "claim.amount_changed":
       return `${by} changed the claimed amount from ${formatUsd(Number(d.fromCents ?? 0))} to ${formatUsd(Number(d.toCents ?? 0))}. Any proposed split was cleared.`;
     case "claim.review_requested":
-      return `${by} asked the AI to review the claim again.`;
+      return `${by} asked ${ASSISTANT.name} to review the claim again.`;
     case "claim.payout_preference":
       return d.wantsPayout ? `${by} asked to be paid back right away via PayPal.` : `${by} is fine with a credit on the next rent invoice.`;
     case "claim.withdrawn":
@@ -33,6 +43,14 @@ export function describeEvent(type: string, data: unknown): string {
       return `PayPal invoice sent to ${d.to} for ${formatUsd(Number(d.totalCents ?? 0))}.`;
     case "invoice.send_failed":
       return "PayPal didn't accept the invoice; it's saved as a draft.";
+    case "invoice.reminder_sent":
+      return `${by} sent a PayPal payment reminder for the ${d.period} invoice.`;
+    case "invoice.record_failed":
+      return "The saved-PayPal payment went through, but PayPal didn't mark the invoice paid; the ledger is correct.";
+    case "vault.saved":
+      return `${by} saved a PayPal${d.email ? ` (${d.email})` : ""} for paying rent.`;
+    case "vault.removed":
+      return `${by} removed their saved PayPal.`;
     case "invoice.paid":
       return String(d.summary ?? "Invoice paid.");
     case "payout.started":
@@ -42,9 +60,9 @@ export function describeEvent(type: string, data: unknown): string {
     case "payout.failed":
       return `The PayPal payout didn't go through (${d.reason}). The claim will be credited on the next rent invoice instead.`;
     case "agent.review_finished":
-      return "EvenTally AI finished its review.";
+      return `${ASSISTANT.name} finished her review.`;
     case REVIEW_SUMMARY:
-      return `AI review: ${d.passed} of ${d.total} checks passed · ${d.outcome}`;
+      return `${ASSISTANT.name}'s review: ${d.passed} of ${d.total} checks passed · ${d.outcome}`;
     default:
       if (type.startsWith("agent.")) return d.result?.summary ?? String(d.note ?? type);
       return type;
@@ -148,7 +166,7 @@ function outcomeOf(run: LogEvent[]): string {
 
 export type Proposal = {
   id: string;
-  by: string; // a person's name, or "EvenTally AI"
+  by: string; // a person's name, or the assistant's
   at: Date;
   landlordShareCents: number;
   tenantShareCents: number;
@@ -176,7 +194,7 @@ export function proposalHistory(newestFirst: LogEvent[]): Proposal[] {
     } else if (e.type === "agent.propose_split" && d.result) {
       proposals.push({
         id: e.id,
-        by: "EvenTally AI",
+        by: ASSISTANT.name,
         at: e.createdAt,
         landlordShareCents: Number(d.result.landlordShareCents),
         tenantShareCents: Number(d.result.tenantShareCents),

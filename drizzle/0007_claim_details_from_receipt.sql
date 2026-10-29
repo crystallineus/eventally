@@ -1,0 +1,1 @@
+ALTER TABLE "claims" ALTER COLUMN "issue_reported_at" DROP NOT NULL;

@@ -14,6 +14,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { NOTIFY_LEVELS } from "../notifications-shared";
 
 // Files live in Postgres for now; lib/storage.ts is the only code that should touch this column.
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
@@ -23,6 +24,9 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
 const id = () => uuid("id").primaryKey().defaultRandom();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
+/** What shows up in the bell (and, later, email): only things that need you, every update, or nothing. */
+export const notifyLevel = pgEnum("notify_level", NOTIFY_LEVELS);
+
 export const users = pgTable("users", {
   id: id(),
   name: text("name").notNull(),
@@ -31,6 +35,12 @@ export const users = pgTable("users", {
   businessName: text("business_name"),
   /** Where invoices are sent (tenant) or the PayPal merchant account (landlord). */
   paypalEmail: text("paypal_email"),
+  /** Tenant's PayPal saved with PayPal Vault, so Aunt Tally can pay rent when they confirm. */
+  paypalVaultId: text("paypal_vault_id"),
+  paypalVaultEmail: text("paypal_vault_email"),
+  notify: notifyLevel("notify").notNull().default("important"),
+  /** Bell items up to here have been seen. */
+  notificationsSeenAt: timestamp("notifications_seen_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
 
@@ -77,9 +87,11 @@ export const claims = pgTable(
     submittedBy: uuid("submitted_by").notNull().references(() => users.id),
     title: text("title").notNull(),
     description: text("description").notNull(),
-    issueReportedAt: timestamp("issue_reported_at", { withTimezone: true }).notNull(),
+    /** Null when a claim came from the chat without a date; the review fills it from the receipt. */
+    issueReportedAt: timestamp("issue_reported_at", { withTimezone: true }),
     status: claimStatus("status").notNull().default("reviewing"),
-    /** Receipt total as confirmed by the submitter (may differ from what the agent extracted). */
+    /** Receipt total as confirmed by the submitter (may differ from what the agent extracted). Null until
+     *  known: a claim from the chat can leave it to the review, which fills it from the receipt. */
     amountCents: integer("amount_cents"),
     landlordShareCents: integer("landlord_share_cents"),
     tenantShareCents: integer("tenant_share_cents"),

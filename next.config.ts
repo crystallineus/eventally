@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
+  // The PayPal Agent Toolkit pulls in large SDKs; load it with Node's require instead of bundling it.
+  serverExternalPackages: ["@paypal/agent-toolkit"],
   experimental: {
     serverActions: {
       // Photos are resized in the browser first; this stays under Vercel's ~4.5 MB request cap.

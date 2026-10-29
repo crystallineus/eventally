@@ -1,8 +1,10 @@
 import { and, asc, count, desc, eq, or } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { viaMeta } from "@/lib/via";
 import { formatUsd, splitByShare, type Cents } from "@/lib/money";
 import type { User } from "@/lib/session";
 import { putEvidence, type EvidenceKind } from "@/lib/storage";
+import { ASSISTANT } from "@/lib/persona";
 
 type Claim = typeof schema.claims.$inferSelect;
 type Lease = typeof schema.leases.$inferSelect;
@@ -49,8 +51,9 @@ export type NewClaim = {
   leaseId: string;
   title: string;
   description: string;
-  issueReportedAt: Date;
-  amountCents: Cents;
+  /** Null: unknown yet, filled from the receipt by the review. */
+  issueReportedAt: Date | null;
+  amountCents: Cents | null;
   /** Tenant only: ask to be paid back via PayPal right away instead of a rent credit. */
   tenantWantsPayout?: boolean;
   files: { kind: EvidenceKind; file: File }[];
@@ -81,7 +84,7 @@ export async function createClaim(user: User, input: NewClaim): Promise<string> 
       claimId: claim.id,
       actor: roleOf(lease, user.id),
       type: "claim.submitted",
-      data: { by: user.name, title: claim.title, amountCents: claim.amountCents, evidence: stored.map((s) => s.kind), wantsPayout: claim.tenantWantsPayout },
+      data: { ...viaMeta(), by: user.name, title: claim.title, amountCents: claim.amountCents, evidence: stored.map((s) => s.kind), wantsPayout: claim.tenantWantsPayout },
     });
     return claim.id;
   });
@@ -100,7 +103,7 @@ export async function addEvidence(user: User, claimId: string, files: { kind: Ev
       claimId,
       actor: found.role,
       type: "evidence.added",
-      data: { by: user.name, kinds: stored.map((s) => s.kind) },
+      data: { ...viaMeta(), by: user.name, kinds: stored.map((s) => s.kind) },
     });
     // New evidence doesn't start a review by itself: people finish their changes, then use
     // requestReview ("Ask AI to review again").
@@ -123,7 +126,7 @@ export async function removeEvidence(user: User, evidenceId: string) {
   if (!item || !found) throw new Error("Photo not found");
   if (item.uploadedBy !== user.id) throw new Error("Only the person who uploaded a photo can remove it");
   if (!isOpen(found.claim)) throw new Error("This claim is closed");
-  if (found.claim.reviewStartedAt) throw new Error("The AI review is running. Try again when it finishes.");
+  if (found.claim.reviewStartedAt) throw new Error(`${ASSISTANT.name} is still reviewing. Try again when she finishes.`);
 
   await db().transaction(async (tx) => {
     if (item.kind === "receipt") {
@@ -139,7 +142,7 @@ export async function removeEvidence(user: User, evidenceId: string) {
       claimId: item.claimId,
       actor: found.role,
       type: "evidence.removed",
-      data: { by: user.name, kind: item.kind, sha256: item.sha256 },
+      data: { ...viaMeta(), by: user.name, kind: item.kind, sha256: item.sha256 },
     });
     if (found.claim.status === "awaiting_approval") await clearApprovals(tx, item.claimId);
   });
@@ -174,7 +177,7 @@ export async function requestReview(user: User, claimId: string) {
   if (!found) throw new Error("Claim not found");
   const from = found.claim.status;
   if (from !== "needs_evidence" && from !== "awaiting_approval") throw new Error("This claim can't be reviewed again now");
-  if ((await reviewCount(claimId)) >= MAX_REVIEWS) throw new Error(`The AI has already reviewed this claim ${MAX_REVIEWS} times`);
+  if ((await reviewCount(claimId)) >= MAX_REVIEWS) throw new Error(`${ASSISTANT.name} has already reviewed this claim ${MAX_REVIEWS} times`);
 
   await db().transaction(async (tx) => {
     const [updated] = await tx
@@ -192,7 +195,7 @@ export async function requestReview(user: User, claimId: string) {
       .where(and(eq(schema.claims.id, claimId), eq(schema.claims.status, from)))
       .returning({ id: schema.claims.id });
     if (!updated) return;
-    await tx.insert(schema.events).values({ leaseId: found.lease.id, claimId, actor: found.role, type: "claim.review_requested", data: { by: user.name } });
+    await tx.insert(schema.events).values({ leaseId: found.lease.id, claimId, actor: found.role, type: "claim.review_requested", data: { ...viaMeta(), by: user.name } });
   });
 }
 
@@ -232,7 +235,7 @@ export async function proposeSplit(user: User, claimId: string, landlordBasisPoi
       claimId,
       actor: role,
       type: "split.proposed",
-      data: { by: user.name, landlordShareCents: landlord, tenantShareCents: tenant, rationale },
+      data: { ...viaMeta(), by: user.name, landlordShareCents: landlord, tenantShareCents: tenant, rationale },
     });
   });
 }
@@ -267,7 +270,7 @@ export async function approveClaim(user: User, claimId: string) {
       claimId,
       actor: role,
       type: "split.approved",
-      data: { by: user.name, landlordShareCents: row.claim.landlordShareCents, tenantShareCents: row.claim.tenantShareCents },
+      data: { ...viaMeta(), by: user.name, landlordShareCents: row.claim.landlordShareCents, tenantShareCents: row.claim.tenantShareCents },
     });
     if (bothApproved) {
       await tx.insert(schema.events).values({
@@ -301,7 +304,7 @@ export async function updateClaimAmount(user: User, claimId: string, amountCents
       .for("update", { of: schema.claims });
     if (!row || row.claim.submittedBy !== user.id) throw new Error("Only the person who submitted a claim can change its amount");
     if (!isOpen(row.claim)) throw new Error("This claim is closed");
-    if (row.claim.reviewStartedAt) throw new Error("The AI review is running. Try again when it finishes.");
+    if (row.claim.reviewStartedAt) throw new Error(`${ASSISTANT.name} is still reviewing. Try again when she finishes.`);
     if (row.claim.amountCents === amountCents) return;
 
     await tx
@@ -324,7 +327,7 @@ export async function updateClaimAmount(user: User, claimId: string, amountCents
       claimId,
       actor: roleOf(row.lease, user.id),
       type: "claim.amount_changed",
-      data: { by: user.name, fromCents: row.claim.amountCents, toCents: amountCents },
+      data: { ...viaMeta(), by: user.name, fromCents: row.claim.amountCents, toCents: amountCents },
     });
   });
 }
@@ -338,7 +341,7 @@ export async function setPayoutPreference(user: User, claimId: string, wantsPayo
   if (found.claim.tenantWantsPayout === wantsPayout) return;
   await db().transaction(async (tx) => {
     await tx.update(schema.claims).set({ tenantWantsPayout: wantsPayout, updatedAt: new Date() }).where(eq(schema.claims.id, claimId));
-    await tx.insert(schema.events).values({ leaseId: found.lease.id, claimId, actor: "tenant", type: "claim.payout_preference", data: { by: user.name, wantsPayout } });
+    await tx.insert(schema.events).values({ leaseId: found.lease.id, claimId, actor: "tenant", type: "claim.payout_preference", data: { ...viaMeta(), by: user.name, wantsPayout } });
   });
 }
 
@@ -348,7 +351,7 @@ export async function withdrawClaim(user: User, claimId: string) {
   if (!isOpen(found.claim)) throw new Error("This claim is closed");
   await db().transaction(async (tx) => {
     await tx.update(schema.claims).set({ status: "withdrawn", updatedAt: new Date() }).where(eq(schema.claims.id, claimId));
-    await tx.insert(schema.events).values({ leaseId: found.lease.id, claimId, actor: found.role, type: "claim.withdrawn", data: { by: user.name } });
+    await tx.insert(schema.events).values({ leaseId: found.lease.id, claimId, actor: found.role, type: "claim.withdrawn", data: { ...viaMeta(), by: user.name } });
   });
 }
 

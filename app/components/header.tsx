@@ -1,30 +1,53 @@
 import Link from "next/link";
+import { AuntTallyAvatar } from "@/app/components/aunt-tally";
 import { switchUser } from "@/app/actions";
+import { describeEvent } from "@/app/components/event-label";
+import { NotificationBell } from "@/app/components/notification-bell";
+import { getNotifications } from "@/lib/notifications";
 import { getCurrentUser, getDemoUsers } from "@/lib/session";
+import { formatDateTime } from "@/lib/time";
 
 export async function Header() {
   const [current, users] = await Promise.all([getCurrentUser(), getDemoUsers()]);
   const isLandlord = users.find((u) => u.id === current?.id)?.role === "landlord";
+  const notifications = current ? await getNotifications(current) : null;
 
   return (
-    <header className="border-b border-stone-200 bg-white">
+    <header className="sticky top-0 z-20 border-b border-stone-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
-        <Link href="/" className="text-lg font-semibold tracking-tight text-stone-900">
+        <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-stone-900">
+          <AuntTallyAvatar size={28} />
           EvenTally
         </Link>
-        {current && (
-          <nav className="flex gap-4 text-sm text-stone-600">
+        <nav className="flex gap-4 text-sm text-stone-600">
+          {current && (
             <Link href="/ledger" className="hover:text-stone-900">
               Ledger
             </Link>
-            {isLandlord && (
-              <Link href="/properties" className="hover:text-stone-900">
-                Properties
-              </Link>
-            )}
-          </nav>
+          )}
+          {isLandlord && (
+            <Link href="/properties" className="hover:text-stone-900">
+              Properties
+            </Link>
+          )}
+        </nav>
+        {current && notifications && (
+          <div className="ml-auto">
+            <NotificationBell
+              key={current.id}
+              level={current.notify}
+              unread={notifications.unread}
+              items={notifications.items.map((n) => ({
+                id: n.id,
+                href: n.href,
+                unread: n.unread,
+                text: describeEvent(n.event.type, n.event.data),
+                when: formatDateTime(n.event.createdAt),
+              }))}
+            />
+          </div>
         )}
-        <form action={switchUser} className="ml-auto flex items-center gap-2 text-sm">
+        <form action={switchUser} className={`${current ? "" : "ml-auto "}flex items-center gap-2 text-sm`}>
           <span className="text-stone-500">Demo view as</span>
           {users.map((u) => (
             <button

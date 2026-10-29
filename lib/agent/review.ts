@@ -9,6 +9,7 @@ import { unknownAmounts } from "@/lib/guard";
 import { formatUsd, parseUsd, splitByShare, type Cents } from "@/lib/money";
 import { formatLeaseTerm } from "@/lib/period";
 import { PRICE_CATEGORIES, type PriceCategory } from "@/lib/reference-prices";
+import { ASSISTANT } from "@/lib/persona";
 
 // The review agent: looks at the evidence, calls checks as tools, and ends by either asking one
 // side for more evidence or proposing a split. It has no tool that moves money — approved splits
@@ -95,7 +96,7 @@ const tools: Anthropic.Beta.BetaTool[] = (Object.keys(inputs) as ToolName[]).map
   return { name, description: DESCRIPTIONS[name], input_schema: input_schema as Anthropic.Beta.BetaTool.InputSchema };
 });
 
-const SYSTEM = `You are EvenTally's repair-claim reviewer, an AI assistant. A landlord and a tenant both read everything you write, so stay neutral and write plain, friendly English for both of them. Never pretend to be a person.
+const SYSTEM = `You are Aunt Tally (full name Even Tally), the AI assistant in the EvenTally app, reviewing a repair claim. You are an AI, not a person: never claim or imply otherwise. Your voice is a fair-minded aunt: warm, plain and calm, never cutesy about money, and on nobody's side. A landlord and a tenant both read everything you write, so stay neutral and write plain, friendly English for both of them. Never pretend to be a person.
 
 Your job for each claim:
 1. Read the receipt image and call record_receipt.
@@ -141,15 +142,15 @@ export async function runReview(claimId: string): Promise<ReviewOutcome> {
     db().insert(schema.events).values({ leaseId: lease.id, claimId, actor: "agent", type, data });
 
   try {
-    await log("agent.review_started", { note: "EvenTally AI started reviewing this claim." });
+    await log("agent.review_started", { note: `${ASSISTANT.name} started reviewing this claim.` });
     const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
     const outcome = await reviewLoop(locked, lease, log, usage, reviewNumber);
     await log("agent.review_finished", { outcome, model: MODEL, ...usage });
-    if (outcome === "incomplete") await log("agent.review_incomplete", { note: "The AI review ended without a decision. Either of you can propose a split." });
+    if (outcome === "incomplete") await log("agent.review_incomplete", { note: `${ASSISTANT.name}'s review ended without a decision. Either of you can propose a split.` });
     return outcome;
   } catch (err) {
     console.error("review failed", err);
-    await log("agent.error", { note: "The AI review hit an error. Either of you can still propose a split.", error: err instanceof Error ? err.message : String(err) });
+    await log("agent.error", { note: `${ASSISTANT.name}'s review hit an error. Either of you can still propose a split.`, error: err instanceof Error ? err.message : String(err) });
     return "error";
   } finally {
     await db().update(schema.claims).set({ reviewStartedAt: null }).where(eq(schema.claims.id, claimId));
@@ -181,7 +182,7 @@ async function reviewLoop(claim: Claim, lease: Lease, log: Log, usage: Usage, re
     usage.outputTokens += response.usage.output_tokens;
 
     if (response.stop_reason === "refusal") {
-      await log("agent.refused", { note: "The AI declined to review this claim. Either of you can propose a split." });
+      await log("agent.refused", { note: `${ASSISTANT.name} declined to review this claim. Either of you can propose a split.` });
       return "incomplete";
     }
     messages.push({ role: "assistant", content: response.content });
@@ -229,15 +230,19 @@ async function loadContext(claim: Claim, lease: Lease, reviewNumber: number) {
       type: "text",
       text: [
         `Claim: ${claim.title}`,
-        `Submitted by ${name(claim.submittedBy)} (the ${submitterRole}), who paid ${formatUsd(claim.amountCents ?? 0)} and is asking to be reimbursed.`,
-        `Problem reported on: ${claim.issueReportedAt.toISOString().slice(0, 10)}`,
+        claim.amountCents == null
+          ? `Submitted by ${name(claim.submittedBy)} (the ${submitterRole}), who is asking to be reimbursed. They didn't enter the amount; record_receipt fills it in from the receipt total.`
+          : `Submitted by ${name(claim.submittedBy)} (the ${submitterRole}), who paid ${formatUsd(claim.amountCents)} and is asking to be reimbursed.`,
+        claim.issueReportedAt
+          ? `Problem reported on: ${claim.issueReportedAt.toISOString().slice(0, 10)}`
+          : "Problem reported on: not given; record_receipt uses the receipt date.",
         `Description: ${claim.description}`,
         "",
         `Property: ${lease.propertyName}. Landlord: ${name(lease.landlordId)}. Tenant: ${name(lease.tenantId)}.`,
         `Lease term: ${formatLeaseTerm(lease.startDate, lease.endDate)}. Rent: ${formatUsd(lease.rentCents)}/month.`,
         `Repair clause from the lease:\n${lease.repairClause}`,
         "",
-        `This is AI review ${reviewNumber} of at most ${MAX_REVIEWS} for this claim.${reviewNumber === MAX_REVIEWS ? " It is the last one, so finish with propose_split." : ""}`,
+        `This is review ${reviewNumber} of at most ${MAX_REVIEWS} for this claim.${reviewNumber === MAX_REVIEWS ? " It is the last one, so finish with propose_split." : ""}`,
         ...earlierRequests.map(
           (r) => `Earlier you asked for more evidence: "${(r.data as { result?: { summary?: string } }).result?.summary ?? ""}" Anything uploaded after ${r.createdAt.toISOString()} is the response.`,
         ),
@@ -319,6 +324,22 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
       .update(schema.evidence)
       .set({ extracted: { ...receipt, legible: input.legible } })
       .where(eq(schema.evidence.id, evidence.id));
+
+    // Claims from the chat can leave the amount and date to the receipt. Only a readable receipt fills them.
+    const fill: { amountCents?: Cents; issueReportedAt?: Date } = {};
+    if (input.legible && ctx.claim.amountCents == null && receipt.totalCents > 0) fill.amountCents = receipt.totalCents;
+    if (input.legible && !ctx.claim.issueReportedAt && receipt.date) fill.issueReportedAt = new Date(`${receipt.date}T12:00:00Z`);
+    if (Object.keys(fill).length) {
+      const [updated] = await db().update(schema.claims).set(fill).where(eq(schema.claims.id, ctx.claim.id)).returning();
+      ctx.claim = updated;
+      await db().insert(schema.events).values({
+        leaseId: ctx.claim.leaseId,
+        claimId: ctx.claim.id,
+        actor: "agent",
+        type: "claim.filled_from_receipt",
+        data: { amountCents: fill.amountCents ?? null, date: fill.issueReportedAt ? receipt.date : null },
+      });
+    }
     return {
       result: {
         status: input.legible ? "pass" : "warn",
@@ -329,13 +350,15 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
 
   async check_math(_input, ctx) {
     if (!ctx.receipt) throw new Error("Call record_receipt first");
-    return { result: checkMath(ctx.receipt, ctx.claim.amountCents ?? 0) };
+    if (ctx.claim.amountCents == null) throw new Error("The claim has no amount and the receipt couldn't be read; ask for a clearer receipt photo");
+    return { result: checkMath(ctx.receipt, ctx.claim.amountCents) };
   },
 
   async check_dates(_input, ctx) {
     if (!ctx.receipt) throw new Error("Call record_receipt first");
     const today = todayInAppZone();
-    return { result: checkDates(ctx.receipt.date, ctx.claim.issueReportedAt.toISOString().slice(0, 10), ctx.lease, today) };
+    const reported = ctx.claim.issueReportedAt?.toISOString().slice(0, 10) ?? ctx.receipt.date ?? today;
+    return { result: checkDates(ctx.receipt.date, reported, ctx.lease, today) };
   },
 
   async check_duplicate(_input, ctx) {
@@ -393,7 +416,7 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
   async request_more_evidence(input, ctx) {
     // One request per claim: after that, the person approving the split is the manual check.
     if (ctx.lastReview) {
-      throw new Error("This is the last AI review for this claim. Call propose_split and say in the rationale what the approving person should check themselves.");
+      throw new Error("This is your last review of this claim. Call propose_split and say in the rationale what the approving person should check themselves.");
     }
     if (ctx.alreadyAskedForEvidence) {
       throw new Error(
@@ -410,7 +433,8 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
   },
 
   async propose_split(input, ctx) {
-    const total = ctx.claim.amountCents ?? 0;
+    if (ctx.claim.amountCents == null) throw new Error("The claim has no amount yet; ask for a readable receipt instead");
+    const total = ctx.claim.amountCents;
     const { landlord, tenant } = splitByShare(total, Math.round(input.landlord_percent * 100));
     const known = new Set(ctx.knownAmounts).add(landlord).add(tenant);
     const unknown = unknownAmounts(`${input.rationale} ${input.lease_citation}`, known);

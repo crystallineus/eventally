@@ -25,13 +25,14 @@ export async function getToken() {
 }
 
 // Returns { status, body } and never throws on HTTP errors, so spikes can record failures.
-export async function pp(method, path, body) {
+export async function pp(method, path, body, extraHeaders = {}) {
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${await getToken()}`,
       "Content-Type": "application/json",
       Prefer: "return=representation",
+      ...extraHeaders,
     },
     body: body ? JSON.stringify(body) : undefined,
   });

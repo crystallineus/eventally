@@ -4,3 +4,51 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
+
+/*
+ * EvenTally palette: Ink Black #04080F, Glaucous #507DBC, Powder Blue #A1C6EA, Pale Sky #BBD1EA,
+ * Alabaster Grey #DAE3E5. Rather than renaming every class, the two scales the app uses are
+ * redrawn from it: `stone` becomes cool neutrals running from alabaster to ink, and `sky` becomes
+ * the blue accent built around glaucous (sky-600 is a deeper glaucous so white text on it stays
+ * readable). PayPal-branded buttons keep PayPal's own colors.
+ */
+@theme {
+  --color-ink: #04080f;
+  --color-glaucous: #507dbc;
+  --color-powder-blue: #a1c6ea;
+  --color-pale-sky: #bbd1ea;
+  --color-alabaster: #dae3e5;
+
+  --color-stone-50: #f6f8f9;
+  --color-stone-100: #edf1f3;
+  --color-stone-200: #dae3e5;
+  --color-stone-300: #c3ced3;
+  --color-stone-400: #96a2ac;
+  --color-stone-500: #66727e;
+  --color-stone-600: #4a5562;
+  --color-stone-700: #2f3844;
+  --color-stone-800: #171e28;
+  --color-stone-900: #04080f;
+  --color-stone-950: #020407;
+
+  --color-sky-50: #f2f6fb;
+  --color-sky-100: #e2ebf6;
+  --color-sky-200: #bbd1ea;
+  --color-sky-300: #a1c6ea;
+  --color-sky-400: #79a0d2;
+  --color-sky-500: #507dbc;
+  --color-sky-600: #4169a6;
+  --color-sky-700: #35578b;
+  --color-sky-800: #2b4770;
+  --color-sky-900: #213756;
+}
+
+::selection {
+  background: var(--color-pale-sky);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-glaucous);
+  outline-offset: 2px;
+}

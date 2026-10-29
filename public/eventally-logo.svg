@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs><clipPath id="c"><circle cx="100" cy="100" r="92"/></clipPath></defs>
+  <circle cx="100" cy="100" r="99" fill="#04080F"/>
+  <circle cx="100" cy="100" r="95" fill="#DAE3E5"/>
+  <circle cx="100" cy="100" r="92" fill="#507DBC"/>
+  <g clip-path="url(#c)">
+    <circle cx="100" cy="92" r="72" fill="#5C88C5"/>
+    <!-- robe -->
+    <path d="M14 200 C16 170 40 154 72 150 L128 150 C160 154 184 170 186 200Z" fill="#2B4F86"/>
+    <path d="M72 150 C66 168 64 186 66 200 L54 200 C52 180 58 162 72 150Z" fill="#203E6B"/>
+    <path d="M128 150 C134 168 136 186 134 200 L146 200 C148 180 142 162 128 150Z" fill="#203E6B"/>
+    <path d="M80 148 L100 172 L120 148Z" fill="#F7F9FA"/>
+    <path d="M92 160 L100 172 L108 160 L108 194 C105 196 103 196 100 194 C97 196 95 196 92 194Z" fill="#F7F9FA" stroke="#BBD1EA" stroke-width="1.2"/>
+    <path d="M100 172 L100 194" stroke="#BBD1EA" stroke-width="1.6"/>
+    <!-- ears -->
+    <path d="M62 66 C34 46 6 62 8 96 C10 126 34 142 60 128Z" fill="#A1C6EA"/>
+    <path d="M58 74 C38 60 18 72 19 97 C20 120 38 130 56 120Z" fill="#F2B6BC"/>
+    <path d="M138 66 C166 46 194 62 192 96 C190 126 166 142 140 128Z" fill="#A1C6EA"/>
+    <path d="M142 74 C162 60 182 72 181 97 C180 120 162 130 144 120Z" fill="#F2B6BC"/>
+    <!-- wig side falls -->
+    <g fill="#F7F9FA" stroke="#BBD1EA" stroke-width="1.8">
+<rect x="46.0" y="60.0" width="30.0" height="16.0" rx="8.0"/>
+<rect x="124.0" y="60.0" width="30.0" height="16.0" rx="8.0"/>
+<rect x="43.0" y="74.5" width="30.0" height="16.0" rx="8.0"/>
+<rect x="127.0" y="74.5" width="30.0" height="16.0" rx="8.0"/>
+<rect x="41.0" y="89.0" width="30.0" height="16.0" rx="8.0"/>
+<rect x="129.0" y="89.0" width="30.0" height="16.0" rx="8.0"/>
+<rect x="41.0" y="103.5" width="30.0" height="16.0" rx="8.0"/>
+<rect x="129.0" y="103.5" width="30.0" height="16.0" rx="8.0"/>
+<rect x="43.0" y="118.0" width="30.0" height="16.0" rx="8.0"/>
+<rect x="127.0" y="118.0" width="30.0" height="16.0" rx="8.0"/>
+<rect x="46.0" y="132.5" width="27.0" height="16.0" rx="8.0"/>
+<rect x="127.0" y="132.5" width="27.0" height="16.0" rx="8.0"/>
+<rect x="49.0" y="147.0" width="27.0" height="16.0" rx="8.0"/>
+<rect x="124.0" y="147.0" width="27.0" height="16.0" rx="8.0"/>
+    </g>
+    <g fill="#E4ECF4" stroke="#BBD1EA" stroke-width="1.3">
+<circle cx="68.0" cy="68.0" r="4.6"/>
+<circle cx="132.0" cy="68.0" r="4.6"/>
+<circle cx="65.0" cy="82.5" r="4.6"/>
+<circle cx="135.0" cy="82.5" r="4.6"/>
+<circle cx="63.0" cy="97.0" r="4.6"/>
+<circle cx="137.0" cy="97.0" r="4.6"/>
+<circle cx="63.0" cy="111.5" r="4.6"/>
+<circle cx="137.0" cy="111.5" r="4.6"/>
+<circle cx="65.0" cy="126.0" r="4.6"/>
+<circle cx="135.0" cy="126.0" r="4.6"/>
+<circle cx="65.0" cy="140.5" r="4.6"/>
+<circle cx="135.0" cy="140.5" r="4.6"/>
+<circle cx="68.0" cy="155.0" r="4.6"/>
+<circle cx="132.0" cy="155.0" r="4.6"/>
+    </g>
+    <!-- head -->
+    <path d="M100 50 C126 50 142 68 142 93 C142 116 128 132 112 136 L88 136 C72 132 58 116 58 93 C58 68 74 50 100 50Z" fill="#A1C6EA"/>
+    <path d="M70 120 C76 130 86 135 92 135 L88 136 C78 133 70 128 66 122Z" fill="#8FB8E2"/>
+    <!-- trunk, curling up to her left -->
+    <path d="M92 100 C90 114 91 128 97 136 C103 144 116 145 122 138 C127 132 124 123 117 123 C112 123 110 128 113 131 C110 133 106 129 105 122 C104 114 105 106 108 100Z" fill="#A1C6EA" stroke="#86AEDB" stroke-width="1.2"/>
+    <path d="M90.5 98 L109.5 98 L108 102 L92 102Z" fill="#A1C6EA"/>
+    <circle cx="117.3" cy="128.5" r="2.2" fill="#86AEDB"/>
+    <path d="M94.5 106 C94 118 95 128 100 135" stroke="#B9D6F2" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <g stroke="#7FA8D6" stroke-width="1.3" fill="none" stroke-linecap="round">
+      <path d="M92.5 114 Q98 116 104 114"/><path d="M93 120 Q98.5 122 104 120"/><path d="M95 126 Q100 128 105.5 126"/>
+    </g>
+    <!-- smile and cheeks -->
+    <path d="M77 114 Q82 121 89 118" stroke="#2B4F86" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <ellipse cx="73" cy="105" rx="7" ry="4.5" fill="#F2A7B0" opacity="0.8"/>
+    <ellipse cx="127" cy="105" rx="7" ry="4.5" fill="#F2A7B0" opacity="0.8"/>
+    <!-- eyes -->
+    <ellipse cx="83" cy="89" rx="4.4" ry="5.6" fill="#04080F"/>
+    <ellipse cx="117" cy="89" rx="4.4" ry="5.6" fill="#04080F"/>
+    <circle cx="84.8" cy="86.8" r="1.6" fill="#FFFFFF"/>
+    <circle cx="118.8" cy="86.8" r="1.6" fill="#FFFFFF"/>
+    <path d="M78.8 85 L76.5 83" stroke="#04080F" stroke-width="1.4" stroke-linecap="round"/>
+    <path d="M121.2 85 L123.5 83" stroke="#04080F" stroke-width="1.4" stroke-linecap="round"/>
+    <!-- red glasses, soft cat-eye -->
+    <g stroke="#D23F3F" stroke-width="2.5" fill="rgba(255,255,255,0.16)" stroke-linejoin="round">
+      <path d="M70 81 C70 78 72 76.5 76 76.5 L91 77.5 C94 77.6 95 79 95 81.5 L94 92 C93.4 96.6 90.6 98.5 86 98.5 L78 98.5 C73.6 98.5 70.8 96 70.4 92Z"/>
+      <path d="M130 81 C130 78 128 76.5 124 76.5 L109 77.5 C106 77.6 105 79 105 81.5 L106 92 C106.6 96.6 109.4 98.5 114 98.5 L122 98.5 C126.4 98.5 129.2 96 129.6 92Z"/>
+    </g>
+    <path d="M95 83 Q100 80.5 105 83" stroke="#D23F3F" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <path d="M70 80 L63 78.5" stroke="#D23F3F" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M130 80 L137 78.5" stroke="#D23F3F" stroke-width="2.6" stroke-linecap="round"/>
+    <!-- wig crown -->
+    <g fill="#F7F9FA" stroke="#BBD1EA" stroke-width="1.8">
+<rect x="84.0" y="26.0" width="32.0" height="15.0" rx="7.5"/>
+<rect x="68.0" y="36.0" width="30.0" height="15.0" rx="7.5"/>
+<rect x="102.0" y="36.0" width="30.0" height="15.0" rx="7.5"/>
+<rect x="57.0" y="47.0" width="26.0" height="15.0" rx="7.5"/>
+<rect x="85.0" y="47.0" width="30.0" height="15.0" rx="7.5"/>
+<rect x="117.0" y="47.0" width="26.0" height="15.0" rx="7.5"/>
+<rect x="58.0" y="58.0" width="24.0" height="15.0" rx="7.5"/>
+<rect x="80.0" y="58.0" width="20.0" height="15.0" rx="7.5"/>
+<rect x="100.0" y="58.0" width="20.0" height="15.0" rx="7.5"/>
+<rect x="118.0" y="58.0" width="24.0" height="15.0" rx="7.5"/>
+    </g>
+  </g>
+</svg>

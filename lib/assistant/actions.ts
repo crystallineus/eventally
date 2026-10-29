@@ -21,7 +21,9 @@ import { formatUsd, parseUsd, splitByShare } from "@/lib/money";
 import { payClaimNow } from "@/lib/payouts";
 import { ASSISTANT } from "@/lib/persona";
 import { formatPeriod } from "@/lib/period";
+import type { User as SessionUser } from "@/lib/session";
 import type { EvidenceKind } from "@/lib/storage";
+import { payableInvoice, payInvoiceWithVault } from "@/lib/vault";
 import { runVia } from "@/lib/via";
 
 // Things Aunt Tally can do for someone. Each happens in two steps:
@@ -45,7 +47,8 @@ export type Action =
   | { kind: "request_review"; claimId: string }
   | { kind: "pay_back_now"; claimId: string }
   | { kind: "send_next_invoice" }
-  | { kind: "send_reminder"; invoiceId: string; note: string };
+  | { kind: "send_reminder"; invoiceId: string; note: string }
+  | { kind: "pay_invoice"; invoiceId: string };
 
 /** What the confirmation card shows. `needsPhotos` asks the chat to send the photos attached in it. */
 export type Pending = { action: Action; title: string; lines: string[]; confirmLabel: string; needsPhotos?: boolean };
@@ -108,6 +111,22 @@ export async function prepareAction(
       title: `Send the ${plan.label} rent invoice through PayPal?`,
       lines: [...plan.invoice.lines.map((l) => `${l.name}: ${formatUsd(l.amountCents)}`), `Total: ${formatUsd(plan.invoice.totalCents)}`],
       confirmLabel: "Send invoice",
+    };
+  }
+
+  if (kind === "pay_invoice") {
+    if (role !== "tenant") return { error: "Only the tenant pays rent invoices." };
+    const invoice = await payableInvoice(lease);
+    if (!invoice) return { error: "There's no rent invoice waiting for payment right now." };
+    const [me] = await db().select().from(schema.users).where(eq(schema.users.id, userId));
+    if (!me?.paypalVaultId) {
+      return { error: `They haven't saved a PayPal yet. Tell them to press "Save my PayPal for rent" on the [ledger](/ledger) first, or pay with the invoice's Pay with PayPal button.` };
+    }
+    return {
+      action: { kind, invoiceId: invoice.id },
+      title: `Pay the ${formatPeriod(invoice.period)} rent invoice, ${formatUsd(invoice.totalCents)}?`,
+      lines: [`From your saved PayPal${me.paypalVaultEmail ? ` (${me.paypalVaultEmail})` : ""}`, "PayPal emails you a receipt."],
+      confirmLabel: `Pay ${formatUsd(invoice.totalCents)}`,
     };
   }
 
@@ -223,7 +242,7 @@ export async function prepareAction(
 
 /** The person pressed Confirm. Runs the action and says what happened. */
 export async function performAction(
-  user: User & { email: string; paypalEmail: string | null; businessName: string | null; createdAt: Date },
+  user: SessionUser,
   lease: Lease,
   action: Action,
   photos: { kind: EvidenceKind; file: File }[],
@@ -273,6 +292,10 @@ export async function performAction(
       case "send_reminder":
         await sendReminder(user, lease, action.invoiceId, action.note);
         return { message: "PayPal sent the reminder." };
+      case "pay_invoice": {
+        const paid = await payInvoiceWithVault(user, lease, action.invoiceId);
+        return { message: `Paid ${formatUsd(paid.paidCents)} for ${paid.period} rent with your saved PayPal.` };
+      }
     }
   });
 }

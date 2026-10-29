@@ -43,6 +43,12 @@ function describe(type: string, data: unknown): string {
       return "PayPal didn't accept the invoice; it's saved as a draft.";
     case "invoice.reminder_sent":
       return `${by} sent a PayPal payment reminder for the ${d.period} invoice.`;
+    case "invoice.record_failed":
+      return "The saved-PayPal payment went through, but PayPal didn't mark the invoice paid; the ledger is correct.";
+    case "vault.saved":
+      return `${by} saved a PayPal${d.email ? ` (${d.email})` : ""} for paying rent.`;
+    case "vault.removed":
+      return `${by} removed their saved PayPal.`;
     case "invoice.paid":
       return String(d.summary ?? "Invoice paid.");
     case "payout.started":

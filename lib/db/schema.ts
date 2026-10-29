@@ -31,6 +31,9 @@ export const users = pgTable("users", {
   businessName: text("business_name"),
   /** Where invoices are sent (tenant) or the PayPal merchant account (landlord). */
   paypalEmail: text("paypal_email"),
+  /** Tenant's PayPal saved with PayPal Vault, so Aunt Tally can pay rent when they confirm. */
+  paypalVaultId: text("paypal_vault_id"),
+  paypalVaultEmail: text("paypal_vault_email"),
   createdAt: createdAt(),
 });
 

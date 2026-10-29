@@ -36,6 +36,13 @@
       "when": 1793076264329,
       "tag": "0004_tenant_wants_payout",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793245225327,
+      "tag": "0005_tenant_paypal_vault",
+      "breakpoints": true
     }
   ]
 }

@@ -7,14 +7,15 @@ import { getLedger, getLeasesForUser, roleIn, type LeaseWithParties } from "@/li
 import { formatUsd } from "@/lib/money";
 import { formatLeaseTerm } from "@/lib/period";
 import { requireUser } from "@/lib/session";
-import { PaymentWatcher, RefreshInvoiceButton, SendInvoiceButton } from "./invoice-controls";
+import { PaymentWatcher, PayWithSavedButton, RefreshInvoiceButton, SendInvoiceButton } from "./invoice-controls";
+import { ASSISTANT } from "@/lib/persona";
 import { ActivityList } from "@/app/components/activity-list";
 import { Assistant } from "@/app/components/assistant";
 
 export default async function LedgerPage({ searchParams }: PageProps<"/ledger">) {
   const user = await requireUser();
   const leases = await getLeasesForUser(user.id);
-  const { lease: leaseParam } = await searchParams;
+  const { lease: leaseParam, vault } = await searchParams;
   const lease = leases.find((l) => l.id === leaseParam) ?? leases[0];
 
   if (!lease) {
@@ -106,6 +107,8 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         )}
       </section>
 
+      {role === "tenant" && <SavedPayPal email={user.paypalVaultId ? (user.paypalVaultEmail ?? "your PayPal") : null} notice={typeof vault === "string" ? vault : null} />}
+
       <section>
         <h2 className="mb-3 font-semibold">History</h2>
         <div className="space-y-4">
@@ -136,6 +139,9 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
                       Pay with PayPal
                     </a>
                   )}
+                  {role === "tenant" && p.invoice.status === "sent" && user.paypalVaultId && (
+                    <PayWithSavedButton leaseId={lease.id} invoiceId={p.invoice.id} label={`Pay ${formatUsd(p.invoice.totalCents)} with saved PayPal`} />
+                  )}
                   {role === "landlord" && <RefreshInvoiceButton invoiceId={p.invoice.id} draft={p.invoice.status === "draft"} />}
                 </div>
               )}
@@ -152,6 +158,39 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         <ActivityList events={condenseReviews(ledger.events)} />
       </section>
     </div>
+  );
+}
+
+const VAULT_NOTICE: Record<string, string> = {
+  saved: "Saved. You can now pay rent with one press of Confirm.",
+  cancelled: "Nothing was saved.",
+  failed: "PayPal couldn't save it. Try again in a moment.",
+  removed: "Removed. Rent is paid with the invoice link again.",
+};
+
+/** Tenant: save a PayPal once (PayPal Vault) so rent can be paid without logging in each month. */
+function SavedPayPal({ email, notice }: { email: string | null; notice: string | null }) {
+  return (
+    <section className="rounded-xl border border-stone-200 bg-white p-5">
+      <h2 className="font-semibold">Saved PayPal for rent</h2>
+      {email ? (
+        <p className="mt-1 text-sm text-stone-600">
+          {email} is saved. When a rent invoice arrives, you or {ASSISTANT.name} can pay it with one press of Confirm; nothing is charged without it.
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-stone-600">
+          Save your PayPal once, and paying each month&apos;s invoice becomes one press of Confirm, here or in a chat with {ASSISTANT.name}. You approve it on PayPal and can remove it any time.
+        </p>
+      )}
+      <form method="post" action={email ? "/api/vault/remove" : "/api/vault/start"} className="mt-3 flex flex-wrap items-center gap-3">
+        {email ? (
+          <button className="text-sm text-stone-600 underline hover:text-stone-900">Remove saved PayPal</button>
+        ) : (
+          <button className="rounded-lg bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]">Save my PayPal for rent</button>
+        )}
+        {notice && VAULT_NOTICE[notice] && <span className="text-sm text-stone-500">{VAULT_NOTICE[notice]}</span>}
+      </form>
+    </section>
   );
 }
 

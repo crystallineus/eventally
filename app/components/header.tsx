@@ -13,7 +13,7 @@ export async function Header() {
   const notifications = current ? await getNotifications(current) : null;
 
   return (
-    <header className="border-b border-stone-200 bg-white">
+    <header className="sticky top-0 z-20 border-b border-stone-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
         <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-stone-900">
           <AuntTallyAvatar size={28} />

@@ -67,6 +67,7 @@ export async function explainMonth(lease: Lease, period?: string) {
       total: formatUsd(plan.invoice.totalCents),
       lines: plan.invoice.lines.map((l) => ({ name: l.name, amount: formatUsd(l.amountCents), claim: claimFor(l.claimId ?? null) })),
       credit_carried_to_next_month: plan.invoice.carryOverCents ? formatUsd(plan.invoice.carryOverCents) : null,
+      link: `/ledger?lease=${lease.id}`,
     };
   }
 
@@ -87,6 +88,8 @@ export async function explainMonth(lease: Lease, period?: string) {
       claim: claimFor(e.claimId),
     })),
     months_on_ledger: months.map(formatPeriod),
+    link: `/ledger/${month}?lease=${lease.id}`,
+    all_months_link: `/ledger/history?lease=${lease.id}`,
   };
 }
 
@@ -116,7 +119,7 @@ function bestMatch(claims: Claim[], ref: string): Claim | undefined {
 /** All repair claims on the lease, newest first. */
 export async function listClaims(lease: Lease) {
   const claims = await db().select().from(schema.claims).where(eq(schema.claims.leaseId, lease.id)).orderBy(desc(schema.claims.createdAt));
-  return { claims: claims.map((c) => ({ ...claimSummary(lease, c), claim_id: c.id })) };
+  return { claims: claims.map((c) => ({ ...claimSummary(lease, c), claim_id: c.id })), all_claims_link: `/claims?lease=${lease.id}` };
 }
 
 /** One claim in detail: what happened, where it stands, Aunt Tally's review, and what's next. */

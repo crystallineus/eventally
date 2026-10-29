@@ -7,7 +7,7 @@ import { AuntTallyAvatar } from "@/app/components/aunt-tally";
 import { resizeImage } from "@/app/components/resize-images";
 import { ASSISTANT } from "@/lib/persona";
 
-type Message = { role: "user" | "assistant"; text: string };
+type Message = { role: "user" | "assistant"; text: string; photos?: Photo[] };
 type Pending = { action: { kind: string }; title: string; lines: string[]; confirmLabel: string; needsPhotos?: boolean };
 type Kind = "receipt" | "before" | "after";
 type Photo = { kind: Kind; file: File; url: string };
@@ -31,7 +31,10 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
     },
   ]);
   const [pending, setPending] = useState<Pending | null>(null);
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  // `draft`: photos in the tray above the input. `sent`: photos already sent in the chat that no card
+  // has used yet; they go along when a card that needs photos is confirmed.
+  const [draft, setDraft] = useState<Photo[]>([]);
+  const [sent, setSent] = useState<Photo[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -39,23 +42,31 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, pending, busy, photos.length]);
+  }, [messages, pending, busy, draft.length]);
 
   const say = (text: string) => setMessages((m) => [...m, { role: "assistant", text }]);
 
   async function ask(question: string, history = messages) {
-    const q = question.trim();
+    const photos = history === messages ? draft : [];
+    const q = question.trim() || (photos.length ? "Here are my photos." : "");
     if (!q || busy) return;
-    const next: Message[] = [...history, { role: "user", text: q }];
+    const attached = [...sent, ...photos];
+    const next: Message[] = [...history, { role: "user", text: q, photos }];
     setMessages(next);
     setInput("");
+    setDraft([]);
+    setSent(attached);
     setPending(null);
     setBusy(`${ASSISTANT.name} is looking it up…`);
     try {
       const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leaseId, messages: next, attachments: photos.map((p) => ({ kind: p.kind, name: p.file.name })) }),
+        body: JSON.stringify({
+          leaseId,
+          messages: next.map(({ role, text }) => ({ role, text })),
+          attachments: attached.map((p) => ({ kind: p.kind, name: p.file.name })),
+        }),
       });
       const reply = (await res.json()) as { text?: string; pending?: Pending; error?: string };
       say(reply.text ?? reply.error ?? "Sorry, something went wrong.");
@@ -74,7 +85,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
     const form = new FormData();
     form.append("leaseId", leaseId);
     form.append("action", JSON.stringify(card.action));
-    if (card.needsPhotos) for (const p of photos) form.append(p.kind, p.file);
+    if (card.needsPhotos) for (const p of sent) form.append(p.kind, p.file);
     let result: { ok: boolean; error?: string; message?: string; claimId?: string; startReview?: boolean };
     try {
       result = await (await fetch("/api/assistant/act", { method: "POST", body: form })).json();
@@ -87,7 +98,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
       setBusy(null);
       return;
     }
-    if (card.needsPhotos) clearPhotos();
+    if (card.needsPhotos) setSent([]);
     const done = `✓ ${result.message}`;
     say(done);
     router.refresh();
@@ -107,16 +118,11 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
     if (!files?.length) return;
     try {
       const resized = await Promise.all([...files].map(resizeImage));
-      setPhotos((p) => [...p, ...resized.map((file) => ({ kind: (p.length ? "after" : "receipt") as Kind, file, url: URL.createObjectURL(file) }))].slice(0, 12));
+      setDraft((p) => [...p, ...resized.map((file) => ({ kind: (p.length ? "after" : "receipt") as Kind, file, url: URL.createObjectURL(file) }))].slice(0, 12));
     } catch (err) {
       say(err instanceof Error ? err.message : "I couldn't read that photo.");
     }
     if (fileRef.current) fileRef.current.value = "";
-  }
-
-  function clearPhotos() {
-    photos.forEach((p) => URL.revokeObjectURL(p.url));
-    setPhotos([]);
   }
 
   if (!open) {
@@ -154,8 +160,19 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
               <RichText text={m.text} />
             </div>
           ) : (
-            <div key={i} className="ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-stone-900 px-3 py-2 text-white">
-              {m.text}
+            <div key={i} className="ml-auto max-w-[85%] space-y-2 rounded-2xl rounded-tr-sm bg-stone-900 px-3 py-2 text-white">
+              {m.photos && m.photos.length > 0 && (
+                <div className="flex flex-wrap justify-end gap-1.5">
+                  {m.photos.map((p) => (
+                    <figure key={p.url} className="w-16">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p.url} alt={p.file.name} className="h-14 w-16 rounded-md object-cover" />
+                      <figcaption className="mt-0.5 text-center text-[10px] text-stone-300">{KIND_LABEL[p.kind]}</figcaption>
+                    </figure>
+                  ))}
+                </div>
+              )}
+              <p>{m.text}</p>
             </div>
           ),
         )}
@@ -191,16 +208,16 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
         )}
       </div>
 
-      {photos.length > 0 && (
+      {draft.length > 0 && (
         <div className="flex gap-2 overflow-x-auto border-t border-stone-100 px-2 pt-2">
-          {photos.map((p, i) => (
+          {draft.map((p, i) => (
             <div key={p.url} className="relative w-20 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.url} alt={p.file.name} className="h-16 w-20 rounded-md object-cover" />
               <button
                 onClick={() => {
                   URL.revokeObjectURL(p.url);
-                  setPhotos((all) => all.filter((_, j) => j !== i));
+                  setDraft((all) => all.filter((_, j) => j !== i));
                 }}
                 aria-label={`Remove ${p.file.name}`}
                 className="absolute top-0.5 right-0.5 grid size-5 place-items-center rounded-full bg-black/60 text-[10px] text-white"
@@ -209,7 +226,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
               </button>
               <select
                 value={p.kind}
-                onChange={(e) => setPhotos((all) => all.map((q, j) => (j === i ? { ...q, kind: e.target.value as Kind } : q)))}
+                onChange={(e) => setDraft((all) => all.map((q, j) => (j === i ? { ...q, kind: e.target.value as Kind } : q)))}
                 aria-label={`What ${p.file.name} shows`}
                 className="mt-1 w-full rounded border border-stone-300 bg-white px-1 py-0.5 text-xs"
               >
@@ -251,7 +268,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
           aria-label={`Message ${ASSISTANT.name}`}
           className="flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-stone-900 focus:outline-none"
         />
-        <button disabled={!!busy || !input.trim()} className="rounded-lg bg-stone-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40">
+        <button disabled={!!busy || (!input.trim() && !draft.length)} className="rounded-lg bg-stone-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40">
           Send
         </button>
       </form>

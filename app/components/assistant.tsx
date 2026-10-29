@@ -4,79 +4,119 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
+import { resizeImage } from "@/app/components/resize-images";
 import { ASSISTANT } from "@/lib/persona";
 
 type Message = { role: "user" | "assistant"; text: string };
-type Pending = { type: "send_reminder"; invoiceId: string; month: string; amount: string; note: string };
+type Pending = { action: { kind: string }; title: string; lines: string[]; confirmLabel: string; needsPhotos?: boolean };
+type Kind = "receipt" | "before" | "after";
+type Photo = { kind: Kind; file: File; url: string };
+
+const KIND_LABEL: Record<Kind, string> = { receipt: "Receipt", before: "Before", after: "After" };
 
 const SUGGESTIONS = {
-  tenant: ["Explain my latest bill", "What's waiting on me?", "Has my last invoice been paid?"],
+  tenant: ["What's waiting on me?", "Explain my latest bill", "Help me submit a repair claim"],
   landlord: ["What do I need to do?", "Explain the latest invoice", "Send a payment reminder"],
 };
 
 // "Ask Aunt Tally": a floating chat panel for one lease. The conversation lives only in this browser
-// tab; Aunt Tally can't change anything, and a reminder is sent only after the landlord confirms.
+// tab. She can prepare actions, but each one runs only when the person presses the card's button.
 export function Assistant({ leaseId, role, firstName }: { leaseId: string; role: "landlord" | "tenant"; firstName: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      text: `Hi ${firstName}, I'm ${ASSISTANT.name}, the AI assistant here. I can explain your bill line by line, tell you what's waiting on you, or check an invoice in PayPal.`,
+      text: `Hi ${firstName}, I'm ${ASSISTANT.name}, the AI assistant here. I can explain your bill, tell you what's waiting on you, or take care of a claim or payment with you. I'll always ask before I do anything.`,
     },
   ]);
   const [pending, setPending] = useState<Pending | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, pending, busy]);
+  }, [messages, pending, busy, photos.length]);
 
-  async function ask(question: string) {
+  const say = (text: string) => setMessages((m) => [...m, { role: "assistant", text }]);
+
+  async function ask(question: string, history = messages) {
     const q = question.trim();
     if (!q || busy) return;
-    const next: Message[] = [...messages, { role: "user", text: q }];
+    const next: Message[] = [...history, { role: "user", text: q }];
     setMessages(next);
     setInput("");
     setPending(null);
-    setBusy(true);
+    setBusy(`${ASSISTANT.name} is looking it up…`);
     try {
       const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leaseId, messages: next }),
+        body: JSON.stringify({ leaseId, messages: next, attachments: photos.map((p) => ({ kind: p.kind, name: p.file.name })) }),
       });
       const reply = (await res.json()) as { text?: string; pending?: Pending; error?: string };
-      setMessages((m) => [...m, { role: "assistant", text: reply.text ?? reply.error ?? "Sorry, something went wrong." }]);
+      say(reply.text ?? reply.error ?? "Sorry, something went wrong.");
       setPending(reply.pending ?? null);
     } catch {
-      setMessages((m) => [...m, { role: "assistant", text: "Sorry, I couldn't reach the server. Try again?" }]);
+      say("Sorry, I couldn't reach the server. Try again?");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
-  async function confirmReminder() {
-    if (!pending) return;
-    setBusy(true);
-    const res = await fetch("/api/assistant/reminder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ leaseId, invoiceId: pending.invoiceId, note: pending.note }),
-    });
-    const result = (await res.json()) as { ok: boolean; error?: string };
-    setMessages((m) => [
-      ...m,
-      {
-        role: "assistant",
-        text: result.ok ? `Done. PayPal sent the ${pending.month} reminder, and it's in the activity log.` : `PayPal didn't send it: ${result.error}`,
-      },
-    ]);
+  async function confirm() {
+    if (!pending || busy) return;
+    const card = pending;
+    setBusy("Working on it…");
+    const form = new FormData();
+    form.append("leaseId", leaseId);
+    form.append("action", JSON.stringify(card.action));
+    if (card.needsPhotos) for (const p of photos) form.append(p.kind, p.file);
+    let result: { ok: boolean; error?: string; message?: string; claimId?: string; startReview?: boolean };
+    try {
+      result = await (await fetch("/api/assistant/act", { method: "POST", body: form })).json();
+    } catch {
+      result = { ok: false, error: "couldn't reach the server" };
+    }
     setPending(null);
-    setBusy(false);
-    if (result.ok) router.refresh();
+    if (!result.ok) {
+      say(`✗ That didn't go through: ${result.error}`);
+      setBusy(null);
+      return;
+    }
+    if (card.needsPhotos) clearPhotos();
+    const done = `✓ ${result.message}`;
+    say(done);
+    router.refresh();
+    if (!result.startReview || !result.claimId) {
+      setBusy(null);
+      return;
+    }
+    // A new or changed claim: run the review here, then let her report what it found.
+    setBusy("Reviewing the evidence and the lease… this takes a minute.");
+    await fetch(`/api/claims/${result.claimId}/review`, { method: "POST" }).catch(() => null);
+    router.refresh();
+    setBusy(null);
+    await ask("How did the review go?", [...messages, { role: "assistant", text: done }]);
+  }
+
+  async function addPhotos(files: FileList | null) {
+    if (!files?.length) return;
+    try {
+      const resized = await Promise.all([...files].map(resizeImage));
+      setPhotos((p) => [...p, ...resized.map((file) => ({ kind: (p.length ? "after" : "receipt") as Kind, file, url: URL.createObjectURL(file) }))].slice(0, 12));
+    } catch (err) {
+      say(err instanceof Error ? err.message : "I couldn't read that photo.");
+    }
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function clearPhotos() {
+    photos.forEach((p) => URL.revokeObjectURL(p.url));
+    setPhotos([]);
   }
 
   if (!open) {
@@ -100,7 +140,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
         <AuntTallyAvatar size={34} />
         <div className="flex-1 leading-tight">
           <p className="text-sm font-semibold">{ASSISTANT.name}</p>
-          <p className="text-xs text-stone-500">{ASSISTANT.disclosure} · can&apos;t change your claims or money</p>
+          <p className="text-xs text-stone-500">{ASSISTANT.disclosure} · asks before doing anything</p>
         </div>
         <button onClick={() => setOpen(false)} aria-label="Close chat" className="grid size-8 place-items-center rounded-full text-stone-500 hover:bg-stone-100">
           ✕
@@ -119,17 +159,23 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
             </div>
           ),
         )}
-        {busy && <p className="text-xs text-stone-500">{ASSISTANT.name} is looking it up…</p>}
+        {busy && <p className="text-xs text-stone-500">{busy}</p>}
         {pending && (
           <div className="rounded-xl border border-sky-300 bg-sky-50 p-3">
-            <p className="font-medium text-sky-900">Send a PayPal reminder for the {pending.month} invoice ({pending.amount})?</p>
-            <p className="mt-1 text-sky-800">&ldquo;{pending.note}&rdquo;</p>
+            <p className="font-medium text-sky-900">{pending.title}</p>
+            {pending.lines.length > 0 && (
+              <ul className="mt-1 space-y-0.5 text-sky-800">
+                {pending.lines.map((l, i) => (
+                  <li key={i}>{l}</li>
+                ))}
+              </ul>
+            )}
             <div className="mt-2 flex gap-2">
-              <button onClick={confirmReminder} disabled={busy} className="rounded-lg bg-[#0070ba] px-3 py-1.5 text-white hover:bg-[#005ea6] disabled:opacity-50">
-                Confirm and send
+              <button onClick={confirm} disabled={!!busy} className="rounded-lg bg-[#0070ba] px-3 py-1.5 font-medium text-white hover:bg-[#005ea6] disabled:opacity-50">
+                {pending.confirmLabel}
               </button>
-              <button onClick={() => setPending(null)} disabled={busy} className="rounded-lg px-3 py-1.5 text-stone-700 hover:bg-white">
-                Cancel
+              <button onClick={() => setPending(null)} disabled={!!busy} className="rounded-lg px-3 py-1.5 text-stone-700 hover:bg-white">
+                Not now
               </button>
             </div>
           </div>
@@ -145,6 +191,39 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
         )}
       </div>
 
+      {photos.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto border-t border-stone-100 px-2 pt-2">
+          {photos.map((p, i) => (
+            <div key={p.url} className="relative w-20 shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt={p.file.name} className="h-16 w-20 rounded-md object-cover" />
+              <button
+                onClick={() => {
+                  URL.revokeObjectURL(p.url);
+                  setPhotos((all) => all.filter((_, j) => j !== i));
+                }}
+                aria-label={`Remove ${p.file.name}`}
+                className="absolute top-0.5 right-0.5 grid size-5 place-items-center rounded-full bg-black/60 text-[10px] text-white"
+              >
+                ✕
+              </button>
+              <select
+                value={p.kind}
+                onChange={(e) => setPhotos((all) => all.map((q, j) => (j === i ? { ...q, kind: e.target.value as Kind } : q)))}
+                aria-label={`What ${p.file.name} shows`}
+                className="mt-1 w-full rounded border border-stone-300 bg-white px-1 py-0.5 text-xs"
+              >
+                {(Object.keys(KIND_LABEL) as Kind[]).map((k) => (
+                  <option key={k} value={k}>
+                    {KIND_LABEL[k]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -152,6 +231,19 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
         }}
         className="flex gap-2 border-t border-stone-100 p-2"
       >
+        <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(e.target.files)} />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={!!busy}
+          aria-label="Attach photos"
+          title="Attach photos"
+          className="grid size-9 shrink-0 place-items-center rounded-lg text-stone-600 hover:bg-stone-100 disabled:opacity-40"
+        >
+          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" />
+          </svg>
+        </button>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -159,7 +251,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
           aria-label={`Message ${ASSISTANT.name}`}
           className="flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-stone-900 focus:outline-none"
         />
-        <button disabled={busy || !input.trim()} className="rounded-lg bg-stone-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40">
+        <button disabled={!!busy || !input.trim()} className="rounded-lg bg-stone-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40">
           Send
         </button>
       </form>

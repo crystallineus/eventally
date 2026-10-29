@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
 import { todayInAppZone } from "@/lib/time";
 import { db, schema } from "@/lib/db";
+import { viaMeta } from "@/lib/via";
 import { planNextInvoice } from "@/lib/ledger";
 import { formatUsd, parseUsd, type Cents } from "@/lib/money";
 import { createAndSendInvoice, getInvoice, PayPalError } from "@/lib/paypal";
@@ -83,7 +84,7 @@ export async function issueNextInvoice(user: User, leaseId: string): Promise<Inv
       leaseId: lease.id,
       actor: "landlord",
       type: "invoice.created",
-      data: { by: user.name, period: plan.label, totalCents: plan.invoice.totalCents, claims: claimIds.length },
+      data: { ...viaMeta(), by: user.name, period: plan.label, totalCents: plan.invoice.totalCents, claims: claimIds.length },
     });
     return row;
   });

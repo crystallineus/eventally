@@ -1,8 +1,15 @@
 import { formatUsd } from "@/lib/money";
 import { ASSISTANT } from "@/lib/persona";
 
-// Human-readable lines for the events log. Unknown types fall back to the raw type.
+// Human-readable lines for the events log. Unknown types fall back to the raw type. Actions a person
+// confirmed in Aunt Tally's chat get "(via Aunt Tally)".
 export function describeEvent(type: string, data: unknown): string {
+  const text = describe(type, data);
+  const via = (data as { via?: unknown } | null)?.via;
+  return typeof via === "string" && via.startsWith(ASSISTANT.name) && !text.includes(ASSISTANT.name) ? `${text} (via ${ASSISTANT.name})` : text;
+}
+
+function describe(type: string, data: unknown): string {
   const d = (data ?? {}) as Record<string, unknown> & { result?: { summary?: string } };
   const by = typeof d.by === "string" ? d.by : "Someone";
   switch (type) {

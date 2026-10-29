@@ -1,14 +1,16 @@
 import { eq } from "drizzle-orm";
+import type { Attachment } from "@/lib/assistant/actions";
 import { chat, type ChatMessage } from "@/lib/assistant/chat";
 import { db, schema } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
+import { EVIDENCE_KINDS } from "@/lib/storage";
 
 export const maxDuration = 60;
 
 // One turn of a conversation with Aunt Tally about a lease the caller is on.
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  const body = (await request.json().catch(() => null)) as { leaseId?: string; messages?: ChatMessage[] } | null;
+  const body = (await request.json().catch(() => null)) as { leaseId?: string; messages?: ChatMessage[]; attachments?: Attachment[] } | null;
   if (!user || !body?.leaseId || !Array.isArray(body.messages)) return Response.json({ error: "Bad request" }, { status: 400 });
 
   const [lease] = await db().select().from(schema.leases).where(eq(schema.leases.id, body.leaseId));
@@ -22,7 +24,12 @@ export async function POST(request: Request) {
   while (messages[0]?.role === "assistant") messages.shift();
 
   try {
-    return Response.json(await chat(user, lease, messages));
+    // Photos waiting in the chat box; only their names and kinds, the files come with the Confirm.
+    const attachments = (Array.isArray(body.attachments) ? body.attachments : [])
+      .filter((a) => EVIDENCE_KINDS.includes(a?.kind) && typeof a.name === "string")
+      .slice(0, 12)
+      .map((a) => ({ kind: a.kind, name: a.name.slice(0, 80) }));
+    return Response.json(await chat(user, lease, messages, attachments));
   } catch (err) {
     console.error("assistant failed", err);
     return Response.json({ text: "Sorry, I lost my place there. Could you ask again?" });

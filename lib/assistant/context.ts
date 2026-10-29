@@ -93,6 +93,12 @@ export async function explainMonth(lease: Lease, period?: string) {
 const STOPWORDS = new Set(["the", "and", "claim", "repair", "for", "with", "that", "this", "what", "about"]);
 const words = (text: string) => new Set(text.toLowerCase().match(/[a-z0-9]+/g)?.filter((w) => w.length > 2 && !STOPWORDS.has(w)) ?? []);
 
+/** Find a claim on the lease by id or by the words someone used for it. */
+export async function resolveClaim(lease: Lease, ref: string) {
+  const claims = await db().select().from(schema.claims).where(eq(schema.claims.leaseId, lease.id)).orderBy(desc(schema.claims.createdAt));
+  return claims.find((c) => c.id === ref) ?? bestMatch(claims, ref);
+}
+
 /** The claim sharing the most words with what the person said (title counts double), if any. */
 function bestMatch(claims: Claim[], ref: string): Claim | undefined {
   const wanted = words(ref);

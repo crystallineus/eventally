@@ -78,7 +78,7 @@ const ACTION_TOOLS: { tool: Anthropic.Beta.BetaTool; kind: Action["kind"]; roles
         type: "object",
         properties: {
           title: { type: "string", description: "Short title, e.g. \"Kitchen sink leak\"" },
-          description: { type: "string", description: "What broke and what was done, in their words" },
+          description: { type: "string", description: "What broke and what was done, only in their words; add nothing they didn't say. Don't mention the photos." },
           issue_date: { type: "string", description: "Date the problem was reported, YYYY-MM-DD" },
           amount: { type: "string", description: "Only if they said it: receipt total in dollars, e.g. \"240.00\"" },
           wants_payout: { type: "boolean", description: "Tenant only: they want to be paid back right away via PayPal" },
@@ -177,7 +177,17 @@ Rules:
 - Agreed splits, sent invoices and paid invoices are final. Explain them; don't question them or suggest re-checking. A claim's "background" is the reasoning both sides already accepted.
 - "Paid up front by" is who paid the repair bill; the agreed split is who bears the cost. They often differ, and that's expected.
 - Don't describe how you looked things up or which tools you used; just answer.
-- Keep answers short: a few sentences or a short list.`;
+- Keep answers short: a few sentences or a short list.
+
+How to write (this is a small chat window, so it matters):
+- At most three short lines. Put each question or item on its own "- " bullet; never several questions in one sentence.
+- When a card is showing, write one sentence. The card lists the details and has the button: don't repeat them, and don't tell them to check it or press it.
+- Example, asking for a new claim:
+"Sure, let's file it.
+- What broke, and what was done?
+- Photos: the receipt, plus before/after if you have them (paperclip)${role === "tenant" ? `
+- Paid back now via PayPal, or a credit on your next rent?` : ""}"
+- Example, with a card: "Here's your claim; I'll read the amount from the receipt."`;
 }
 
 export async function chat(user: { id: string; name: string; paypalVaultId?: string | null; paypalVaultEmail?: string | null; notify?: NotifyLevel }, lease: Lease, history: ChatMessage[], attachments: Attachment[] = []): Promise<ChatReply> {

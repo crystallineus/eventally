@@ -66,7 +66,7 @@ export async function prepareAction(
   input: Record<string, unknown>,
   attachments: Attachment[],
 ): Promise<Pending | { error: string }> {
-  const photoLine = attachments.length ? `Photos: ${attachments.map((a) => `${a.kind} (${a.name})`).join(", ")}` : "No photos attached";
+  const photoLine = attachments.length ? `Photos: ${attachments.map((a) => `${a.kind} (${a.name})`).join(", ")}` : "Photos: None";
 
   if (kind === "create_claim") {
     const title = String(input.title ?? "").trim();
@@ -90,11 +90,11 @@ export async function prepareAction(
       action: { kind, title, description, issueDate, amount: cents == null ? null : (cents / 100).toFixed(2), wantsPayout },
       title: `Submit the claim "${title}"?`,
       lines: [
-        `Receipt total: ${cents == null ? "read from the receipt during review" : formatUsd(cents)}`,
-        ...(issueDate ? [`Problem reported: ${issueDate}`] : []),
         `What happened: ${description}`,
+        `Amount: ${cents == null ? "Read from the receipt" : formatUsd(cents)}`,
+        ...(issueDate ? [`Reported: ${issueDate}`] : []),
         photoLine,
-        ...(role === "tenant" ? [wantsPayout ? "You'd like to be paid back right away via PayPal" : "The landlord's share comes off your next rent invoice"] : []),
+        ...(role === "tenant" ? [`Payback: ${wantsPayout ? "Right away via PayPal" : "Credit on your next rent"}`] : []),
         "I'll review it as soon as it's submitted.",
       ],
       confirmLabel: "Submit claim",

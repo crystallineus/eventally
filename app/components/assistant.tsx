@@ -118,7 +118,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
     if (!files?.length) return;
     try {
       const resized = await Promise.all([...files].map(resizeImage));
-      setDraft((p) => [...p, ...resized.map((file) => ({ kind: (p.length ? "after" : "receipt") as Kind, file, url: URL.createObjectURL(file) }))].slice(0, 12));
+      setDraft((p) => [...p, ...resized.map((file, i) => ({ kind: guessKind(file.name, p.length + i), file, url: URL.createObjectURL(file) }))].slice(0, 12));
     } catch (err) {
       say(err instanceof Error ? err.message : "I couldn't read that photo.");
     }
@@ -156,7 +156,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3 text-sm">
         {messages.map((m, i) =>
           m.role === "assistant" ? (
-            <div key={i} className="max-w-[90%] rounded-2xl rounded-tl-sm bg-stone-100 px-3 py-2 text-stone-800">
+            <div key={i} className="max-w-[90%] rounded-2xl rounded-tl-sm bg-stone-100 px-3 py-2 leading-relaxed text-stone-800">
               <RichText text={m.text} />
             </div>
           ) : (
@@ -177,26 +177,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
           ),
         )}
         {busy && <p className="text-xs text-stone-500">{busy}</p>}
-        {pending && (
-          <div className="rounded-xl border border-sky-300 bg-sky-50 p-3">
-            <p className="font-medium text-sky-900">{pending.title}</p>
-            {pending.lines.length > 0 && (
-              <ul className="mt-1 space-y-0.5 text-sky-800">
-                {pending.lines.map((l, i) => (
-                  <li key={i}>{l}</li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-2 flex gap-2">
-              <button onClick={confirm} disabled={!!busy} className="rounded-lg bg-[#0070ba] px-3 py-1.5 font-medium text-white hover:bg-[#005ea6] disabled:opacity-50">
-                {pending.confirmLabel}
-              </button>
-              <button onClick={() => setPending(null)} disabled={!!busy} className="rounded-lg px-3 py-1.5 text-stone-700 hover:bg-white">
-                Not now
-              </button>
-            </div>
-          </div>
-        )}
+        {pending && <ConfirmCard pending={pending} photos={pending.needsPhotos ? sent : []} busy={!!busy} onConfirm={confirm} onCancel={() => setPending(null)} />}
         {messages.length === 1 && !busy && (
           <div className="flex flex-wrap gap-2 pt-1">
             {SUGGESTIONS[role].map((s) => (
@@ -273,6 +254,73 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
         </button>
       </form>
     </section>
+  );
+}
+
+/** A photo's kind from its name ("sink-before.jpg"), else by order: receipt, before, after. */
+function guessKind(name: string, index: number): Kind {
+  const n = name.toLowerCase();
+  if (/receipt|invoice|bill/.test(n)) return "receipt";
+  if (/before/.test(n)) return "before";
+  if (/after/.test(n)) return "after";
+  return (["receipt", "before", "after"] as const)[Math.min(index, 2)];
+}
+
+/**
+ * The confirmation card. "Label: value" lines become a two-column table; other lines are notes in
+ * small print under it. The Photos line is replaced by thumbnails of the photos that will be sent.
+ */
+function ConfirmCard({ pending, photos, busy, onConfirm, onCancel }: { pending: Pending; photos: Photo[]; busy: boolean; onConfirm: () => void; onCancel: () => void }) {
+  const rows: [string, string][] = [];
+  const notes: string[] = [];
+  for (const line of pending.lines) {
+    const m = /^([A-Z][\w' ]{1,24}): ([\s\S]+)$/.exec(line);
+    if (m) rows.push([m[1], m[2]]);
+    else notes.push(line);
+  }
+  return (
+    <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3">
+      <p className="font-semibold text-stone-900">{pending.title}</p>
+      {rows.length > 0 && (
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[13px]">
+          {rows.map(([label, value]) => (
+            <Fragment key={label}>
+              <dt className="text-stone-500">{label}</dt>
+              <dd className="text-stone-800">
+                {label === "Photos" && photos.length ? (
+                  <span className="flex flex-wrap gap-1.5">
+                    {photos.map((p) => (
+                      <span key={p.url} className="w-12 text-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={p.url} alt={p.file.name} className="h-10 w-12 rounded object-cover" />
+                        <span className="block text-[10px] text-stone-500">{KIND_LABEL[p.kind]}</span>
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  value
+                )}
+              </dd>
+            </Fragment>
+          ))}
+        </dl>
+      )}
+      {notes.length > 0 && (
+        <ul className="mt-2 space-y-0.5 text-xs text-stone-500">
+          {notes.map((n, i) => (
+            <li key={i}>{n}</li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-3 flex gap-2">
+        <button onClick={onConfirm} disabled={busy} className="rounded-lg bg-[#0070ba] px-3 py-1.5 font-medium text-white hover:bg-[#005ea6] disabled:opacity-50">
+          {pending.confirmLabel}
+        </button>
+        <button onClick={onCancel} disabled={busy} className="rounded-lg px-3 py-1.5 text-stone-700 hover:bg-white">
+          Not now
+        </button>
+      </div>
+    </div>
   );
 }
 

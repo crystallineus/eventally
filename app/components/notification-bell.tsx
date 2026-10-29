@@ -13,29 +13,41 @@ type Item = { id: string; href: string; text: string; when: string; unread: bool
 export function NotificationBell({ items, unread, level }: { items: Item[]; unread: number; level: NotifyLevel }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  // The bell sits in the layout, which client navigation doesn't re-render, so remember locally
+  // that these were marked read: the badge hides at once, and comes back only for newer items.
+  const [readUpTo, setReadUpTo] = useState<string | null>(null);
+  const top = items[0]?.id ?? null;
+  const badge = readUpTo !== null && readUpTo === top ? 0 : unread;
   const [, startTransition] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
+    const onOutside = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && close();
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  });
+
+  function close() {
+    setOpen(false);
+    if (readUpTo !== null) router.refresh(); // pick up the read state on the server
+  }
 
   function toggle() {
-    const next = !open;
-    setOpen(next);
-    // Keep the unread dots visible while the panel is open; the count clears on the next refresh.
-    if (next && unread > 0) startTransition(() => markNotificationsRead().then(() => undefined));
-    if (!next && unread > 0) router.refresh();
+    if (open) return close();
+    setOpen(true);
+    // The unread dots stay visible while the panel is open; only the badge clears.
+    if (badge > 0) {
+      setReadUpTo(top);
+      startTransition(() => markNotificationsRead().then(() => undefined));
+    }
   }
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={toggle}
-        aria-label={unread ? `Notifications, ${unread} new` : "Notifications"}
+        aria-label={badge ? `Notifications, ${badge} new` : "Notifications"}
         aria-expanded={open}
         className="relative grid size-9 place-items-center rounded-full text-stone-600 hover:bg-stone-100"
       >
@@ -43,9 +55,9 @@ export function NotificationBell({ items, unread, level }: { items: Item[]; unre
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
           <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
         </svg>
-        {unread > 0 && (
+        {badge > 0 && (
           <span className="absolute -top-0.5 -right-0.5 grid min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[11px] font-semibold leading-5 text-white">
-            {unread > 9 ? "9+" : unread}
+            {badge > 9 ? "9+" : badge}
           </span>
         )}
       </button>
@@ -59,7 +71,7 @@ export function NotificationBell({ items, unread, level }: { items: Item[]; unre
             <ul className="max-h-80 divide-y divide-stone-100 overflow-y-auto">
               {items.map((n) => (
                 <li key={n.id}>
-                  <Link href={n.href} onClick={() => setOpen(false)} className="flex gap-2 px-4 py-2.5 hover:bg-stone-50">
+                  <Link href={n.href} onClick={close} className="flex gap-2 px-4 py-2.5 hover:bg-stone-50">
                     <span className={`mt-1.5 size-2 shrink-0 rounded-full ${n.unread ? "bg-sky-600" : "bg-transparent"}`} aria-hidden />
                     <span>
                       <span className="block text-stone-800">{n.text}</span>

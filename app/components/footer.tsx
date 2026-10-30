@@ -14,6 +14,9 @@ export function Footer() {
             About {ASSISTANT.name}
           </Link>
           <span className="text-xs text-stone-400">Demo · PayPal sandbox · fictional data</span>
+          <form action="/api/demo/reset" method="post">
+            <button className="text-xs text-sky-700 underline hover:text-sky-900">Reset my demo</button>
+          </form>
         </nav>
         <p className="text-xs text-stone-500">© 2026 EvenTally</p>
       </div>

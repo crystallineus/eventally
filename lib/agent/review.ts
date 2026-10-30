@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { getClaimEvidence } from "@/lib/storage";
 import { todayInAppZone } from "@/lib/time";
 import { and, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -214,7 +215,7 @@ type Context = Awaited<ReturnType<typeof loadContext>>;
 
 async function loadContext(claim: Claim, lease: Lease, reviewNumber: number) {
   const [evidence, people, earlierRequests] = await Promise.all([
-    db().select().from(schema.evidence).where(eq(schema.evidence.claimId, claim.id)).orderBy(schema.evidence.createdAt),
+    getClaimEvidence(claim.id),
     db().select({ id: schema.users.id, name: schema.users.name }).from(schema.users).where(inArray(schema.users.id, [lease.landlordId, lease.tenantId ?? lease.landlordId])),
     db()
       .select({ data: schema.events.data, createdAt: schema.events.createdAt })

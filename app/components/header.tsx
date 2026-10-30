@@ -8,14 +8,21 @@ import { getCurrentUser, getDemoUsers } from "@/lib/session";
 import { formatDateTime } from "@/lib/time";
 
 export async function Header() {
-  const [current, users] = await Promise.all([getCurrentUser(), getDemoUsers()]);
-  const isLandlord = users.find((u) => u.id === current?.id)?.role === "landlord";
+  const [current, users] = await Promise.all([
+    getCurrentUser(),
+    getDemoUsers(),
+  ]);
+  const isLandlord =
+    users.find((u) => u.id === current?.id)?.role === "landlord";
   const notifications = current ? await getNotifications(current) : null;
 
   return (
     <header className="sticky top-0 z-20 border-b border-stone-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-stone-900">
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-lg font-semibold tracking-tight text-stone-900"
+        >
           <AuntTallyAvatar size={28} />
           EvenTally
         </Link>
@@ -47,20 +54,26 @@ export async function Header() {
             />
           </div>
         )}
-        <form action={switchUser} className={`${current ? "" : "ml-auto "}flex items-center gap-2 text-sm`}>
-          <span className="text-stone-500">Demo view as</span>
-          {users.map((u) => (
-            <button
-              key={u.id}
-              name="userId"
-              value={u.id}
-              aria-pressed={u.id === current?.id}
-              className="rounded-full border border-stone-300 px-3 py-1 text-stone-700 hover:bg-stone-100 aria-pressed:border-stone-900 aria-pressed:bg-stone-900 aria-pressed:text-white"
-            >
-              {u.name.split(" ")[0]} <span className="opacity-70">({u.role})</span>
-            </button>
-          ))}
-        </form>
+        {users.length > 0 && (
+          <form
+            action={switchUser}
+            className={`${current ? "" : "ml-auto "}flex items-center gap-2 text-sm`}
+          >
+            <span className="text-stone-500">Demo view as</span>
+            {users.map((u) => (
+              <button
+                key={u.id}
+                name="userId"
+                value={u.id}
+                aria-pressed={u.id === current?.id}
+                className="rounded-full border border-stone-300 px-3 py-1 text-stone-700 hover:bg-stone-100 aria-pressed:border-stone-900 aria-pressed:bg-stone-900 aria-pressed:text-white"
+              >
+                {u.name.split(" ")[0]}{" "}
+                <span className="opacity-70">({u.role})</span>
+              </button>
+            ))}
+          </form>
+        )}
       </div>
     </header>
   );

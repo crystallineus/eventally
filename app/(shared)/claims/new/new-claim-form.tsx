@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { submitClaim, type FormState } from "../actions";
 import { withResizedImages } from "@/app/components/resize-images";
+import { loadSamplePhotos, SAMPLE_CLAIM } from "@/app/components/sample-photos";
 
 const input = "mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:border-stone-900 focus:outline-none";
 
@@ -15,6 +16,28 @@ export function NewClaimForm({ leases, defaultLeaseId, today }: { leases: LeaseO
   const [resizeError, setResizeError] = useState<string | null>(null);
   const [preparing, startPreparing] = useTransition();
   const busy = pending || preparing;
+  const [sampleNote, setSampleNote] = useState<string | null>(null);
+
+  // Demo: fill the form with the range hood repair, photos included.
+  async function fillSample(form: HTMLFormElement) {
+    setSampleNote("Loading sample photos…");
+    try {
+      const photos = await loadSamplePhotos();
+      const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement;
+      field("title").value = SAMPLE_CLAIM.title;
+      field("description").value = SAMPLE_CLAIM.description;
+      field("issueDate").value = SAMPLE_CLAIM.issueDate;
+      field("amount").value = SAMPLE_CLAIM.amount;
+      for (const { kind, file } of photos) {
+        const files = new DataTransfer();
+        files.items.add(file);
+        (field(kind) as HTMLInputElement).files = files.files;
+      }
+      setSampleNote("Sample filled in. Check it over, then press Submit.");
+    } catch (err) {
+      setSampleNote(err instanceof Error ? err.message : "Couldn't load the sample");
+    }
+  }
 
   return (
     <form
@@ -33,6 +56,18 @@ export function NewClaimForm({ leases, defaultLeaseId, today }: { leases: LeaseO
       }}
       className="space-y-5 rounded-2xl bg-white shadow-card p-5"
     >
+      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-sky-50 px-3 py-2 text-sm">
+        <span className="text-sky-900">No receipt handy?</span>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={(e) => fillSample(e.currentTarget.form!)}
+          className="rounded-full border border-sky-300 bg-white px-3 py-1 font-medium text-sky-800 hover:border-sky-500 disabled:opacity-50"
+        >
+          Fill in a sample claim
+        </button>
+        {sampleNote && <span className="text-sky-800">{sampleNote}</span>}
+      </div>
       {leases.length > 1 ? (
         <Label text="Property">
           <select name="leaseId" value={leaseId} onChange={(e) => setLeaseId(e.target.value)} className={input}>

@@ -9,6 +9,7 @@ import { db, schema } from "@/lib/db";
 import { parseUsd } from "@/lib/money";
 import { markNotificationsSeen, setNotifyLevel, type NotifyLevel } from "@/lib/notifications";
 import { DEMO_USER_COOKIE, getDemoUsers, requireUser } from "@/lib/session";
+import { TOUR_COOKIE } from "@/lib/tour";
 
 export async function switchUser(formData: FormData) {
   const id = String(formData.get("userId") ?? "");
@@ -16,7 +17,15 @@ export async function switchUser(formData: FormData) {
   const user = (await getDemoUsers()).find((u) => u.id === id);
   if (!user) redirect("/");
   (await cookies()).set(DEMO_USER_COOKIE, user.id, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
-  redirect("/ledger");
+  // The trial checklist switches people and lands on the page for its next step.
+  const next = String(formData.get("next") ?? "");
+  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/ledger");
+}
+
+/** Hide the trial checklist and its highlights for this browser (a new demo shows it again). */
+export async function hideTour() {
+  (await cookies()).set(TOUR_COOKIE, "off", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
+  revalidatePath("/", "layout");
 }
 
 const usd = z

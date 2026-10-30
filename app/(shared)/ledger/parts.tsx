@@ -28,12 +28,15 @@ export function MonthCard({
   role,
   canPaySaved,
   link = true,
+  pulse = false,
 }: {
   p: PeriodView;
   lease: LeaseWithParties;
   role: "landlord" | "tenant";
   canPaySaved: boolean;
   link?: boolean;
+  /** The trial checklist's next step is paying: make the main pay button glow. */
+  pulse?: boolean;
 }) {
   return (
     <div className="rounded-2xl bg-white shadow-card p-5">
@@ -62,7 +65,7 @@ export function MonthCard({
         <div className="mt-3 flex flex-wrap items-center gap-4">
           {/* With a saved PayPal that's the one button; the invoice link stays as a quiet fallback (Venmo, card, a decline). */}
           {role === "tenant" && p.invoice.status === "sent" && canPaySaved && (
-            <PayWithSavedButton leaseId={lease.id} invoiceId={p.invoice.id} label={`Pay ${formatUsd(p.invoice.totalCents)} with saved PayPal`} />
+            <PayWithSavedButton leaseId={lease.id} invoiceId={p.invoice.id} label={`Pay ${formatUsd(p.invoice.totalCents)} with saved PayPal`} pulse={pulse} />
           )}
           {role === "tenant" && p.invoice.status === "sent" && p.invoice.payerUrl && (
             <a
@@ -72,7 +75,7 @@ export function MonthCard({
               className={
                 canPaySaved
                   ? "text-sm text-stone-600 underline hover:text-stone-900"
-                  : "rounded-full bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]"
+                  : `rounded-full bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36] ${pulse ? "tour-pulse" : ""}`
               }
             >
               {canPaySaved ? "Pay another way" : "Pay with PayPal"}

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { createDemo, DEMO_DAYS, deleteOldDemos, ensureSamplePhotos } from "@/lib/demo";
 import { DEMO_COOKIE, DEMO_USER_COOKIE } from "@/lib/session";
+import { TOUR_COOKIE } from "@/lib/tour";
 
 const COOKIE = { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * DEMO_DAYS } as const;
 
@@ -12,5 +13,6 @@ export async function startDemo(role: "landlord" | "tenant") {
   const jar = await cookies();
   jar.set(DEMO_COOKIE, demo.demoId, COOKIE);
   jar.set(DEMO_USER_COOKIE, role === "landlord" ? demo.tomId : demo.mayaId, COOKIE);
+  jar.delete(TOUR_COOKIE); // a fresh demo shows the trial checklist again
   return demo;
 }

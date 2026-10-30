@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
 import { resizeImage } from "@/app/components/resize-images";
+import { loadSamplePhotos } from "@/app/components/sample-photos";
 import { ASSISTANT } from "@/lib/persona";
 
 type Message = { role: "user" | "assistant"; text: string; photos?: Photo[] };
@@ -14,6 +15,10 @@ type Photo = { kind: Kind; file: File; url: string };
 
 const KIND_LABEL: Record<Kind, string> = { receipt: "Receipt", before: "Before", after: "After" };
 
+/** Fired by the trial checklist to start the sample claim in the chat. */
+export const TRY_SAMPLE_EVENT = "eventally:try-sample-claim";
+const SAMPLE_REQUEST = "Help me submit a repair claim: the range hood light stopped working and a technician fixed it.";
+
 const SUGGESTIONS = {
   tenant: ["What's waiting on me?", "Explain my latest bill", "Help me submit a repair claim"],
   landlord: ["What do I need to do?", "Explain the latest invoice", "Send a payment reminder"],
@@ -21,7 +26,7 @@ const SUGGESTIONS = {
 
 // "Ask Aunt Tally": a floating chat panel for one lease. The conversation lives only in this browser
 // tab. She can prepare actions, but each one runs only when the person presses the card's button.
-export function Assistant({ leaseId, role, firstName }: { leaseId: string; role: "landlord" | "tenant"; firstName: string }) {
+export function Assistant({ leaseId, role, firstName, pulse = false }: { leaseId: string; role: "landlord" | "tenant"; firstName: string; pulse?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -114,6 +119,31 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
     await ask("How did the review go?", [...messages, { role: "assistant", text: done }]);
   }
 
+  // The trial checklist's "file a claim with Aunt Tally" step: open the chat with the range hood
+  // sample photos attached and the request typed out, ready to send.
+  async function trySample() {
+    setOpen(true);
+    setInput(SAMPLE_REQUEST);
+    try {
+      const samples = await loadSamplePhotos();
+      const resized = await Promise.all(samples.map(async (s) => ({ kind: s.kind, file: await resizeImage(s.file) })));
+      setDraft(resized.map(({ kind, file }) => ({ kind, file, url: URL.createObjectURL(file) })));
+    } catch (err) {
+      say(err instanceof Error ? err.message : "I couldn't load the sample photos.");
+    }
+  }
+
+  useEffect(() => {
+    const start = () => void trySample();
+    if (window.location.hash === "#aunt-claim") {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+      start();
+    }
+    window.addEventListener(TRY_SAMPLE_EVENT, start);
+    return () => window.removeEventListener(TRY_SAMPLE_EVENT, start);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function addPhotos(files: FileList | null) {
     if (!files?.length) return;
     try {
@@ -129,7 +159,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30 flex items-center gap-2 rounded-full bg-white py-1.5 pr-4 pl-1.5 text-sm font-medium text-stone-800 shadow-lg ring-1 ring-stone-200 hover:ring-stone-400"
+        className={`fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30 flex items-center gap-2 rounded-full bg-white py-1.5 pr-4 pl-1.5 text-sm font-medium text-stone-800 shadow-lg ring-1 ring-stone-200 hover:ring-stone-400 ${pulse ? "tour-pulse" : ""}`}
       >
         <AuntTallyAvatar size={36} />
         Ask {ASSISTANT.name}
@@ -185,6 +215,9 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
                 {s}
               </button>
             ))}
+            <button onClick={() => trySample()} className="rounded-full border border-sky-300 bg-sky-50 px-3 py-1 text-xs text-sky-800 hover:border-sky-500">
+              Try a sample claim with photos
+            </button>
           </div>
         )}
       </div>

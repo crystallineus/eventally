@@ -5,6 +5,7 @@ import { describeEvent } from "@/app/components/event-label";
 import { NotificationBell } from "@/app/components/notification-bell";
 import { getNotifications } from "@/lib/notifications";
 import { getCurrentUser, getDemoUsers } from "@/lib/session";
+import { getTour } from "@/lib/tour";
 import { formatDateTime } from "@/lib/time";
 
 export async function Header() {
@@ -14,7 +15,9 @@ export async function Header() {
   ]);
   const isLandlord =
     users.find((u) => u.id === current?.id)?.role === "landlord";
-  const notifications = current ? await getNotifications(current) : null;
+  const [notifications, tour] = current ? await Promise.all([getNotifications(current), getTour(current)]) : [null, null];
+  // When the trial checklist's next step is the other person's, their button glows.
+  const switchTo = tour?.next && tour.next.role !== tour.role ? tour.people[tour.next.role].id : null;
 
   return (
     <header className="sticky top-0 z-20 border-b border-stone-200 bg-white/95 backdrop-blur">
@@ -66,7 +69,7 @@ export async function Header() {
                 name="userId"
                 value={u.id}
                 aria-pressed={u.id === current?.id}
-                className="rounded-full border border-stone-300 px-3 py-1 text-stone-700 hover:bg-stone-100 aria-pressed:border-stone-900 aria-pressed:bg-stone-900 aria-pressed:text-white"
+                className={`rounded-full border border-stone-300 px-3 py-1 text-stone-700 hover:bg-stone-100 aria-pressed:border-stone-900 aria-pressed:bg-stone-900 aria-pressed:text-white ${u.id === switchTo ? "tour-pulse" : ""}`}
               >
                 {u.name.split(" ")[0]}{" "}
                 <span className="opacity-70">({u.role})</span>

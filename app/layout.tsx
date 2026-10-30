@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Footer } from "@/app/components/footer";
@@ -29,6 +30,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </Suspense>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">{children}</main>
         <Footer />
+        {/* Vercel Web Analytics: page views only, no cookies. Does nothing outside Vercel. */}
+        <Analytics />
       </body>
     </html>
   );

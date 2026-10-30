@@ -107,7 +107,7 @@ export async function addEvidence(user: User, claimId: string, files: { kind: Ev
       data: { ...viaMeta(), by: user.name, kinds: stored.map((s) => s.kind) },
     });
     // New evidence doesn't start a review by itself: people finish their changes, then use
-    // requestReview ("Ask AI to review again").
+    // requestReview ("Review again").
     if (found.claim.status === "awaiting_approval") await clearApprovals(tx, claimId);
   });
 }
@@ -316,7 +316,7 @@ export async function updateIssueDate(user: User, claimId: string, isoDate: stri
 
 /**
  * The submitter corrects something the review relies on (amount, date). Any proposed split is
- * cleared and the claim waits for "Ask AI to review again", unless the first review hasn't run yet.
+ * cleared and the claim waits for "Review again", unless the first review hasn't run yet.
  */
 async function changeSubmittedFact(
   user: User,

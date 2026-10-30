@@ -130,7 +130,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           {reviewsLeft > 0 ? (
             <>
               <p className="mt-2 text-sm text-amber-800">
-                Make all your changes first (photos, amount, date), then ask Aunt Tally to review again. Can&apos;t provide something?
+                Make all your changes first (photos, amount, date), then press Review again. Can&apos;t provide something?
                 Either of you can propose a split under &ldquo;Who pays&rdquo; and the other side reviews it.
               </p>
               <ReviewAgainButton claimId={claim.id} reviewsLeft={reviewsLeft} />

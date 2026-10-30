@@ -33,7 +33,7 @@ export function EditDate({ claimId, date, max }: { claimId: string; date: string
       <button type="button" onClick={() => setEditing(false)} className="px-1 text-stone-500 hover:text-stone-800">
         Cancel
       </button>
-      <span className="w-full text-stone-500">Changing the date clears any proposed split. Ask Aunt Tally to review again when you&apos;re done.</span>
+      <span className="w-full text-stone-500">Changing the date clears any proposed split. Press Review again when you&apos;re done.</span>
       {state.error && <span role="alert" className="w-full text-red-700">{state.error}</span>}
     </form>
   );

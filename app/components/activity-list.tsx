@@ -8,6 +8,8 @@ import { ASSISTANT } from "@/lib/persona";
 
 const PREVIEW = 3;
 
+const ACTOR_LABEL: Record<string, string> = { landlord: "Landlord", tenant: "Tenant", paypal: "PayPal", system: "System" };
+
 type ActivityEvent = { id: string; type: string; actor: string; data: unknown; createdAt: Date };
 
 export function ActivityList({ events }: { events: ActivityEvent[] }) {
@@ -44,7 +46,7 @@ function ActivityItems({ events }: { events: ActivityEvent[] }) {
               {ASSISTANT.name}
             </span>
           ) : (
-            <span className="h-5 shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 capitalize text-stone-600">{e.actor}</span>
+            <span className="h-5 shrink-0 rounded bg-stone-100 px-1.5 text-xs leading-5 text-stone-600">{ACTOR_LABEL[e.actor] ?? e.actor}</span>
           )}
           {/* On phones the text takes its own line under the time and actor. */}
           <span className="w-full text-stone-800 sm:w-auto">{describeEvent(e.type, e.data)}</span>

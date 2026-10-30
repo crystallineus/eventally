@@ -60,18 +60,23 @@ export function MonthCard({
       )}
       {p.invoice && p.invoice.status !== "paid" && (
         <div className="mt-3 flex flex-wrap items-center gap-4">
+          {/* With a saved PayPal that's the one button; the invoice link stays as a quiet fallback (Venmo, card, a decline). */}
+          {role === "tenant" && p.invoice.status === "sent" && canPaySaved && (
+            <PayWithSavedButton leaseId={lease.id} invoiceId={p.invoice.id} label={`Pay ${formatUsd(p.invoice.totalCents)} with saved PayPal`} />
+          )}
           {role === "tenant" && p.invoice.status === "sent" && p.invoice.payerUrl && (
             <a
               href={p.invoice.payerUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-full bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]"
+              className={
+                canPaySaved
+                  ? "text-sm text-stone-600 underline hover:text-stone-900"
+                  : "rounded-full bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]"
+              }
             >
-              Pay with PayPal
+              {canPaySaved ? "Pay another way" : "Pay with PayPal"}
             </a>
-          )}
-          {role === "tenant" && p.invoice.status === "sent" && canPaySaved && (
-            <PayWithSavedButton leaseId={lease.id} invoiceId={p.invoice.id} label={`Pay ${formatUsd(p.invoice.totalCents)} with saved PayPal`} />
           )}
           {role === "landlord" && <RefreshInvoiceButton invoiceId={p.invoice.id} draft={p.invoice.status === "draft"} />}
         </div>

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { addEvidence, approveClaim, createClaim, getClaimForUser, proposeSplit, removeEvidence, requestReview, setPayoutPreference, updateClaimAmount, withdrawClaim } from "@/lib/claims";
+import { addEvidence, approveClaim, createClaim, getClaimForUser, proposeSplit, removeEvidence, requestReview, setPayoutPreference, updateClaimAmount, updateIssueDate, withdrawClaim } from "@/lib/claims";
 import { db, schema } from "@/lib/db";
 import { payClaimNow, syncPayout } from "@/lib/payouts";
 import { parseUsd } from "@/lib/money";
@@ -116,6 +116,18 @@ export async function changeAmount(_prev: FormState, formData: FormData): Promis
     await updateClaimAmount(user, claimId, parseUsd(String(formData.get("amount") ?? "")));
   } catch (err) {
     return { error: err instanceof Error && !err.message.startsWith("Not a USD") ? err.message : "Enter a dollar amount like 45.00" };
+  }
+  revalidatePath(`/claims/${claimId}`);
+  return { error: null };
+}
+
+export async function changeIssueDate(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const claimId = String(formData.get("claimId"));
+  try {
+    await updateIssueDate(user, claimId, String(formData.get("date") ?? ""));
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not change the date" };
   }
   revalidatePath(`/claims/${claimId}`);
   return { error: null };

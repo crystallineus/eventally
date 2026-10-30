@@ -109,6 +109,15 @@ const ACTION_TOOLS: { tool: Anthropic.Beta.BetaTool; kind: Action["kind"]; roles
     tool: { name: "prepare_change_amount", description: "Prepare correcting the amount on a claim they submitted.", input_schema: { type: "object", properties: { ...claimRef, amount: { type: "string" } }, required: ["claim", "amount"] } },
   },
   {
+    kind: "change_date",
+    roles: ["landlord", "tenant"],
+    tool: {
+      name: "prepare_change_date",
+      description: "Prepare correcting the date the problem was reported on a claim they submitted.",
+      input_schema: { type: "object", properties: { ...claimRef, date: { type: "string", description: "YYYY-MM-DD" } }, required: ["claim", "date"] },
+    },
+  },
+  {
     kind: "set_payout_preference",
     roles: ["tenant"],
     tool: {
@@ -162,7 +171,7 @@ function systemPrompt(lease: Lease, role: Role, names: { me: string; other: stri
 
 You're talking with ${names.me}, the ${role} on "${lease.propertyName}" (the ${role === "landlord" ? "tenant" : "landlord"} is ${names.other}). Rent is ${formatUsd(lease.rentCents)} a month, due on day ${lease.dueDay}. Today is ${todayInAppZone()} (Pacific time).
 
-You can explain any month on the ledger line by line, explain a repair claim and where it stands, quote the lease, list what's waiting on ${names.me}, and look an invoice up in PayPal. You can also do things for ${names.me}: submit a claim, add photos, approve or propose a split, withdraw, change an amount${role === "tenant" ? ", ask to be paid back right away, pay a rent invoice with their saved PayPal" : ", pay a claim back via PayPal, send the next rent invoice, send a payment reminder"}, or ask for a new review.
+You can explain any month on the ledger line by line, explain a repair claim and where it stands, quote the lease, list what's waiting on ${names.me}, and look an invoice up in PayPal. You can also do things for ${names.me}: submit a claim, add photos, approve or propose a split, withdraw, change an amount or date${role === "tenant" ? ", ask to be paid back right away, pay a rent invoice with their saved PayPal" : ", pay a claim back via PayPal, send the next rent invoice, send a payment reminder"}, or ask for a new review.
 
 Rules:
 - Look things up with your tools before answering; don't guess.

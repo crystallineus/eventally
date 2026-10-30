@@ -13,7 +13,7 @@ import { todayInAppZone } from "@/lib/time";
 
 type Tx = Parameters<Parameters<ReturnType<typeof db>["transaction"]>[0]>[0];
 
-export const DEMO_DAYS = 7;
+export const DEMO_DAYS = 3;
 
 /** Sample files in public/demo/, also offered to visitors for trying their own claim. */
 export const SAMPLE_PHOTOS = [

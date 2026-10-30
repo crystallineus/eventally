@@ -12,6 +12,7 @@ import {
   reviewCount,
   setPayoutPreference,
   updateClaimAmount,
+  updateIssueDate,
   withdrawClaim,
 } from "@/lib/claims";
 import { db, schema } from "@/lib/db";
@@ -44,6 +45,7 @@ export type Action =
   | { kind: "propose_split"; claimId: string; landlordPercent: number; rationale: string }
   | { kind: "withdraw_claim"; claimId: string }
   | { kind: "change_amount"; claimId: string; amount: string }
+  | { kind: "change_date"; claimId: string; date: string }
   | { kind: "set_payout_preference"; claimId: string; wantsPayout: boolean }
   | { kind: "request_review"; claimId: string }
   | { kind: "pay_back_now"; claimId: string }
@@ -225,6 +227,19 @@ export async function prepareAction(
       };
     }
 
+    case "change_date": {
+      if (!mine) return { error: "Only the person who submitted a claim can change its date." };
+      if (!isOpen(claim)) return { error: `${name} is closed.` };
+      const date = String(input.date ?? "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Ask for the date as YYYY-MM-DD." };
+      return {
+        action: { kind, claimId: claim.id, date },
+        title: `Change the reported date on ${name}?`,
+        lines: [`Reported: ${claim.issueReportedAt?.toISOString().slice(0, 10) ?? "not given"} → ${date}`, "Any proposed split is cleared; ask for a new review when you're done."],
+        confirmLabel: "Change date",
+      };
+    }
+
     case "set_payout_preference": {
       if (!mine || role !== "tenant") return { error: "Only the tenant who submitted the claim can change this." };
       if (!isOpen(claim)) return { error: "Both sides already approved, so the payback preference is fixed." };
@@ -293,6 +308,9 @@ export async function performAction(
       case "change_amount":
         await updateClaimAmount(user, action.claimId, parseUsd(action.amount));
         return { message: "Amount changed.", claimId: action.claimId };
+      case "change_date":
+        await updateIssueDate(user, action.claimId, action.date);
+        return { message: "Date changed.", claimId: action.claimId };
       case "set_payout_preference":
         await setPayoutPreference(user, action.claimId, action.wantsPayout);
         return { message: "Saved.", claimId: action.claimId };

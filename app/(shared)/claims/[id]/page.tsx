@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import Link from "next/link";
-import { formatDateTime } from "@/lib/time";
+import { formatDateTime, todayInAppZone } from "@/lib/time";
 import { notFound } from "next/navigation";
 import { ActivityList } from "@/app/components/activity-list";
 import { Assistant } from "@/app/components/assistant";
@@ -16,6 +16,7 @@ import { approve, changePayoutPreference } from "../actions";
 import { AddEvidenceForm } from "./add-evidence-form";
 import { PayBackButton, PayoutWatcher } from "./pay-back";
 import { EditAmount } from "./edit-amount";
+import { EditDate } from "./edit-date";
 import { ReviewAgainButton } from "./review-again";
 import { EvidenceGallery } from "./evidence-gallery";
 import { ReviewRunner } from "./review-runner";
@@ -75,6 +76,9 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
               Submitted by {submitter} ({tenantPaid ? "tenant" : "landlord"})
               {claim.issueReportedAt && ` · reported ${claim.issueReportedAt.toLocaleDateString("en-US", { dateStyle: "medium", timeZone: "UTC" })}`}
             </p>
+            {open && claim.submittedBy === user.id && !claim.reviewStartedAt && (
+              <EditDate claimId={claim.id} date={claim.issueReportedAt?.toISOString().slice(0, 10) ?? null} max={todayInAppZone()} />
+            )}
           </div>
           <div className="text-right">
             <ClaimStatus status={claim.status} />
@@ -126,7 +130,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           {reviewsLeft > 0 ? (
             <>
               <p className="mt-2 text-sm text-amber-800">
-                Make all your changes first (photos, amount), then ask Aunt Tally to review again. Can&apos;t provide something?
+                Make all your changes first (photos, amount, date), then ask Aunt Tally to review again. Can&apos;t provide something?
                 Either of you can propose a split under &ldquo;Who pays&rdquo; and the other side reviews it.
               </p>
               <ReviewAgainButton claimId={claim.id} reviewsLeft={reviewsLeft} />
@@ -146,7 +150,8 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           claimId={claim.id}
           photos={evidence.map((e) => ({
             removable: open && e.uploadedBy === user.id && !claim.reviewStartedAt,
-            isNew: !!lastReviewEnd && e.createdAt > lastReviewEnd,
+            // Only once Aunt Tally won't review again: then people need to look at these themselves.
+            isNew: reviewsLeft === 0 && !!lastReviewEnd && e.createdAt > lastReviewEnd,
             id: e.id,
             kind: e.kind,
             label: `${KIND_LABELS[e.kind]} · uploaded by ${names.get(e.uploadedBy) ?? "unknown"}`,
@@ -263,7 +268,7 @@ const STATUS_STYLE: Record<string, { icon: string; className: string }> = {
 
 type Step = { id: string; type: string; data: unknown };
 
-const CHANGE_TYPES = new Set(["evidence.added", "evidence.removed", "claim.amount_changed"]);
+const CHANGE_TYPES = new Set(["evidence.added", "evidence.removed", "claim.amount_changed", "claim.date_changed"]);
 
 function AiReview({
   reviewing,

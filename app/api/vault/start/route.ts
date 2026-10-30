@@ -3,7 +3,7 @@ import { publicOrigin } from "@/lib/origin";
 import { getCurrentUser } from "@/lib/session";
 import { startVaultSetup, VAULT_SETUP_COOKIE } from "@/lib/vault";
 
-// Tenant pressed "Save my PayPal": send them to PayPal to approve. The setup token goes in a cookie
+// Tenant pressed Save under "Saved PayPal for rent": send them to PayPal to approve. The setup token goes in a cookie
 // so the return can only finish a setup this browser started.
 export async function POST(request: Request) {
   const user = await getCurrentUser();

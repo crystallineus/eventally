@@ -99,7 +99,7 @@ export async function prepareAction(
         ...(role === "tenant" ? [`Payback: ${wantsPayout ? "Right away via PayPal" : "Credit on your next rent"}`] : []),
         "I'll review it as soon as it's submitted.",
       ],
-      confirmLabel: "Submit claim",
+      confirmLabel: "Submit",
       needsPhotos: attachments.length > 0,
     };
   }
@@ -139,7 +139,7 @@ export async function prepareAction(
     if (!invoice) return { error: "There's no rent invoice waiting for payment right now." };
     const [me] = await db().select().from(schema.users).where(eq(schema.users.id, userId));
     if (!me?.paypalVaultId) {
-      return { error: `They haven't saved a PayPal yet. Tell them to press "Save my PayPal for rent" on the [ledger](/ledger) first, or pay with the invoice's Pay with PayPal button.` };
+      return { error: `They haven't saved a PayPal yet. Tell them to press Save under "Saved PayPal for rent" on the [ledger](/ledger) first, or pay with the invoice's Pay with PayPal button.` };
     }
     return {
       action: { kind, invoiceId: invoice.id },
@@ -208,7 +208,7 @@ export async function prepareAction(
     case "withdraw_claim":
       if (!mine) return { error: "Only the person who submitted a claim can withdraw it." };
       if (!isOpen(claim)) return { error: `${name} is already closed.` };
-      return { action: { kind, claimId: claim.id }, title: `Withdraw ${name}?`, lines: ["This closes it for both of you and can't be undone."], confirmLabel: "Withdraw claim" };
+      return { action: { kind, claimId: claim.id }, title: `Withdraw ${name}?`, lines: ["This closes it for both of you and can't be undone."], confirmLabel: "Withdraw" };
 
     case "change_amount": {
       if (!mine) return { error: "Only the person who submitted a claim can change its amount." };

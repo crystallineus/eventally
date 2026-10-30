@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const [demoId, user, people] = await Promise.all([getDemoId(), getCurrentUser(), getDemoUsers()]);
   const role = people.find((p) => p.id === user?.id)?.role ?? "tenant";
   try {
-    await startDemo(origin, role);
+    await startDemo(role);
     if (demoId) await deleteDemo(demoId);
   } catch (err) {
     console.error("demo reset failed", err);

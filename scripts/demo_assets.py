@@ -1,7 +1,9 @@
 """Generate the fictional demo receipts and photos in demo-assets/.
 
 Every business, phone number and license number here is made up; each receipt is stamped
-"SAMPLE - FICTIONAL DEMO DATA". Photos are simple illustrations, not real photos.
+"SAMPLE - FICTIONAL DEMO DATA". Receipts go into the per-claim folders the app uses
+(kitchen-sink-leak/, screen-repair/, hood-light-replacement/). The before/after photos in those
+folders were taken separately; the sink-*/screen-* assets below are older placeholder drawings.
 
 Usage (needs Pillow and the DejaVu fonts):
     python3 -m venv /tmp/venv && /tmp/venv/bin/pip install pillow
@@ -95,7 +97,7 @@ def plumbing_receipt(out: Path):
     d.text((60, 1180), "Warranty: 90 days on labor, manufacturer warranty on parts.", font=s, fill=(70, 70, 70))
     d.text((60, 1220), "Thank you for choosing Maple Leaf Plumbing & Drain!", font=s, fill=(70, 70, 70))
     center(d, W, H - 70, "SAMPLE – FICTIONAL DEMO DATA – NOT A REAL BUSINESS", font(SANSB, 22), fill=STAMP)
-    img.rotate(-1.2, expand=True, fillcolor=(205, 205, 200)).save(out / "plumbing-receipt.jpg", quality=88)
+    img.rotate(-1.2, expand=True, fillcolor=(205, 205, 200)).save(folder(out, "kitchen-sink-leak") / "sink-receipt.jpg", quality=88)
 
 
 def range_hood_receipt(out: Path):
@@ -161,7 +163,7 @@ def range_hood_receipt(out: Path):
     d.text((60, 1250), "Warranty: 90 days on parts and labor for this repair.", font=s, fill=(70, 70, 70))
     d.text((60, 1290), "Thank you for choosing Alder Appliance Care!", font=s, fill=(70, 70, 70))
     center(d, W, H - 70, "SAMPLE – FICTIONAL DEMO DATA – NOT A REAL BUSINESS", font(SANSB, 22), fill=STAMP)
-    img.rotate(0.8, expand=True, fillcolor=(205, 205, 200)).save(out / "range-hood-receipt.jpg", quality=88)
+    img.rotate(0.8, expand=True, fillcolor=(205, 205, 200)).save(folder(out, "hood-light-replacement") / "light-receipt.jpg", quality=88)
 
 
 def hardware_receipt(out: Path):
@@ -223,7 +225,7 @@ def hardware_receipt(out: Path):
     img = img.crop((0, 0, W, y + 60))
     bg = Image.new("RGB", (W + 160, img.height + 160), (90, 78, 66))
     bg.paste(img, (80, 80))
-    bg.rotate(2.0, expand=True, fillcolor=(90, 78, 66)).save(out / "hardware-receipt.jpg", quality=88)
+    bg.rotate(2.0, expand=True, fillcolor=(90, 78, 66)).save(folder(out, "screen-repair") / "screen-receipt.jpg", quality=88)
 
 
 def sink_photo(out: Path, name: str, leaking: bool):
@@ -264,6 +266,11 @@ def screen_photo(out: Path, name: str, torn: bool):
         caption = "rescreened window, bedroom"
     g.text((60, 820), caption, fill=(30, 30, 30), font=font(SANSB, 34))
     im.save(out / name, quality=85)
+
+
+def folder(out: Path, name: str) -> Path:
+    (out / name).mkdir(parents=True, exist_ok=True)
+    return out / name
 
 
 ASSETS = {

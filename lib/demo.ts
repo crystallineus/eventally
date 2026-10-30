@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { eq, inArray, lt, or } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { formatUsd } from "@/lib/money";
@@ -15,22 +17,24 @@ type Tx = Parameters<Parameters<ReturnType<typeof db>["transaction"]>[0]>[0];
 
 export const DEMO_DAYS = 3;
 
-/** Sample files in public/demo/, also offered to visitors for trying their own claim. */
+/** Sample files in demo-assets/; also zipped in public/ for visitors trying a claim of their own. */
 export const SAMPLE_PHOTOS = [
-  "plumbing-receipt.jpg",
-  "sink-before.jpeg",
-  "sink-after.jpeg",
-  "hardware-receipt.jpg",
-  "screen-before.jpeg",
-  "screen-after.jpeg",
-  "range-hood-receipt.jpg",
+  "kitchen-sink-leak/sink-receipt.jpg",
+  "kitchen-sink-leak/sink-before.jpeg",
+  "kitchen-sink-leak/sink-after.jpeg",
+  "screen-repair/screen-receipt.jpg",
+  "screen-repair/screen-before.jpeg",
+  "screen-repair/screen-after.jpeg",
+  "hood-light-replacement/light-receipt.jpg",
+  "hood-light-replacement/light-before.jpeg",
+  "hood-light-replacement/light-after.jpeg",
 ] as const;
 
-/** Store the sample photos once. `load` returns a file's bytes (from disk in the seed, over HTTP in the app). */
-export async function ensureSamplePhotos(load: (name: string) => Promise<Buffer>) {
+/** Store the sample photos in the database once, from demo-assets/. */
+export async function ensureSamplePhotos() {
   const have = new Set((await db().select({ name: schema.demoPhotos.name }).from(schema.demoPhotos)).map((p) => p.name));
   for (const name of SAMPLE_PHOTOS.filter((n) => !have.has(n))) {
-    const data = await load(name);
+    const data = await readFile(path.join(process.cwd(), "demo-assets", name));
     await db()
       .insert(schema.demoPhotos)
       .values({ name, mimeType: "image/jpeg", data, sha256: createHash("sha256").update(data).digest("hex") })
@@ -153,7 +157,7 @@ async function settledScreenClaim(tx: Tx, leaseId: string, tomId: string) {
     claimId: claim.id,
     kind: "receipt",
     uploadedBy: tomId,
-    photo: "hardware-receipt.jpg",
+    photo: "screen-repair/screen-receipt.jpg",
     createdAt: claim.createdAt,
     extracted: {
       merchant: "Alder Street Hardware",
@@ -169,8 +173,8 @@ async function settledScreenClaim(tx: Tx, leaseId: string, tomId: string) {
       ],
     },
   });
-  await putSampleEvidence(tx, { claimId: claim.id, kind: "before", uploadedBy: tomId, photo: "screen-before.jpeg", createdAt: claim.createdAt });
-  await putSampleEvidence(tx, { claimId: claim.id, kind: "after", uploadedBy: tomId, photo: "screen-after.jpeg", createdAt: claim.createdAt });
+  await putSampleEvidence(tx, { claimId: claim.id, kind: "before", uploadedBy: tomId, photo: "screen-repair/screen-before.jpeg", createdAt: claim.createdAt });
+  await putSampleEvidence(tx, { claimId: claim.id, kind: "after", uploadedBy: tomId, photo: "screen-repair/screen-after.jpeg", createdAt: claim.createdAt });
 
   await claimEvents(tx, leaseId, claim.id, at("2026-10-24T23:30:00Z"), [
     ["landlord", "claim.submitted", { by: "Tom Becker", title, amountCents: 4500, evidence: ["receipt", "before", "after"] }],
@@ -230,7 +234,7 @@ async function sinkClaimAwaitingTom(tx: Tx, leaseId: string, mayaId: string) {
     claimId: claim.id,
     kind: "receipt",
     uploadedBy: mayaId,
-    photo: "plumbing-receipt.jpg",
+    photo: "kitchen-sink-leak/sink-receipt.jpg",
     createdAt: submitted,
     extracted: {
       merchant: "Maple Leaf Plumbing & Drain",
@@ -245,8 +249,8 @@ async function sinkClaimAwaitingTom(tx: Tx, leaseId: string, mayaId: string) {
       ],
     },
   });
-  await putSampleEvidence(tx, { claimId: claim.id, kind: "before", uploadedBy: mayaId, photo: "sink-before.jpeg", createdAt: submitted });
-  await putSampleEvidence(tx, { claimId: claim.id, kind: "after", uploadedBy: mayaId, photo: "sink-after.jpeg", createdAt: submitted });
+  await putSampleEvidence(tx, { claimId: claim.id, kind: "before", uploadedBy: mayaId, photo: "kitchen-sink-leak/sink-before.jpeg", createdAt: submitted });
+  await putSampleEvidence(tx, { claimId: claim.id, kind: "after", uploadedBy: mayaId, photo: "kitchen-sink-leak/sink-after.jpeg", createdAt: submitted });
 
   await claimEvents(tx, leaseId, claim.id, submitted, [
     ["tenant", "claim.submitted", { by: "Maya Chen", title, amountCents: 24000, evidence: ["receipt", "before", "after"], wantsPayout: false }],

@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const role = form?.get("role") === "landlord" ? "landlord" : "tenant";
   const origin = publicOrigin(request);
   try {
-    await startDemo(origin, role);
+    await startDemo(role);
   } catch (err) {
     console.error("demo start failed", err);
     return Response.redirect(new URL("/?demo=failed", origin), 303);

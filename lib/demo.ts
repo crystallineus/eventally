@@ -93,7 +93,10 @@ export async function createDemo() {
       createdAt: at("2026-05-20T17:00:00Z"),
     });
 
-    const screen = await settledScreenClaim(tx, lease.id, tom.id);
+    // Nothing is dated in the future: the screen charge is on November's rent once November has
+    // come; before that it's approved and waiting for that invoice.
+    const novemberPaid = todayInAppZone().slice(0, 7) >= "2026-11";
+    const screen = await screenClaim(tx, lease.id, tom.id, novemberPaid);
     await paidMonths(tx, lease.id, screen);
     await sinkClaimAwaitingTom(tx, lease.id, maya.id);
     return { demoId: demo.id, tomId: tom.id, mayaId: maya.id };
@@ -101,16 +104,15 @@ export async function createDemo() {
 }
 
 /**
- * Rent from October 2026 through the current month, all paid. The screen charge is on November's
- * invoice. Later months follow the visit date, so the next invoice is always next month.
+ * Rent from October 2026 through the current month, all paid on the 1st (never later than now).
+ * The screen charge is on November's invoice. The next invoice is always next month.
  */
 async function paidMonths(tx: Tx, leaseId: string, screen: { claimId: string; title: string }) {
   const current = todayInAppZone().slice(0, 7);
-  const last = current > "2026-11" ? current : "2026-11";
-  for (let period = "2026-10"; period <= last; period = nextPeriod(period)) {
+  for (let period = "2026-10"; period <= current; period = nextPeriod(period)) {
     const withScreen = period === "2026-11";
     const total = RENT + (withScreen ? 4500 : 0);
-    const paidAt = at(`${period}-01T17:30:00Z`);
+    const paidAt = new Date(Math.min(at(`${period}-01T17:30:00Z`).getTime(), Date.now() - 60_000));
     const [invoice] = await tx.insert(schema.invoices).values({ leaseId, period, status: "paid", totalCents: total, paidAt, createdAt: paidAt }).returning();
     const label = formatPeriod(period);
     await tx.insert(schema.ledgerEntries).values([
@@ -128,8 +130,8 @@ async function paidMonths(tx: Tx, leaseId: string, screen: { claimId: string; ti
   }
 }
 
-/** Tom rescreened a window Maya's cat tore; both agreed Maya pays, and it was on November's rent. */
-async function settledScreenClaim(tx: Tx, leaseId: string, tomId: string) {
+/** Tom rescreened a window Maya's cat tore; both agreed Maya pays it, on November's rent. */
+async function screenClaim(tx: Tx, leaseId: string, tomId: string, novemberPaid: boolean) {
   const title = "Torn window screen";
   const rationale =
     "Tom's Alder Street Hardware receipt dated 2026-10-24 totals $45.00 for screen materials, and the before and after photos show the torn screen and the new one. Tom says Maya's cat tore it, and the lease puts damage to window screens caused by a tenant's pet on the tenant.";
@@ -142,7 +144,7 @@ async function settledScreenClaim(tx: Tx, leaseId: string, tomId: string) {
       title,
       description: "Maya's cat tore the living-room window screen. I bought the materials and rescreened it myself.",
       issueReportedAt: at("2026-10-23T12:00:00Z"),
-      status: "settled",
+      status: novemberPaid ? "settled" : "approved",
       amountCents: 4500,
       landlordShareCents: 0,
       tenantShareCents: 4500,
@@ -150,7 +152,7 @@ async function settledScreenClaim(tx: Tx, leaseId: string, tomId: string) {
       landlordApprovedAt: at("2026-10-25T18:10:00Z"),
       tenantApprovedAt: at("2026-10-25T20:40:00Z"),
       createdAt: at("2026-10-24T23:30:00Z"),
-      updatedAt: at("2026-11-01T17:30:00Z"),
+      updatedAt: novemberPaid ? at("2026-11-01T17:30:00Z") : at("2026-10-25T20:40:00Z"),
     })
     .returning();
   const receipt = await putSampleEvidence(tx, {

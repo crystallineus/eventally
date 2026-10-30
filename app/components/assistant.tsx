@@ -140,7 +140,11 @@ export function Assistant({ leaseId, role, firstName, pulse = false }: { leaseId
       start();
     }
     window.addEventListener(TRY_SAMPLE_EVENT, start);
-    return () => window.removeEventListener(TRY_SAMPLE_EVENT, start);
+    document.body.dataset.aunt = "on"; // lets the tour bubble open this chat instead of navigating
+    return () => {
+      window.removeEventListener(TRY_SAMPLE_EVENT, start);
+      delete document.body.dataset.aunt;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -159,7 +163,7 @@ export function Assistant({ leaseId, role, firstName, pulse = false }: { leaseId
     return (
       <button
         onClick={() => setOpen(true)}
-        className={`fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30 flex items-center gap-2 rounded-full bg-white py-1.5 pr-4 pl-1.5 text-sm font-medium text-stone-800 shadow-lg ring-1 ring-stone-200 hover:ring-stone-400 ${pulse ? "tour-pulse" : ""}`}
+        className={`fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30 my-0 flex items-center gap-2 rounded-full bg-white py-1.5 pr-4 pl-1.5 text-sm font-medium text-stone-800 shadow-lg ring-1 ring-stone-200 hover:ring-stone-400 ${pulse ? "tour-pulse" : ""}`}
       >
         <AuntTallyAvatar size={36} />
         Ask {ASSISTANT.name}
@@ -170,7 +174,7 @@ export function Assistant({ leaseId, role, firstName, pulse = false }: { leaseId
   return (
     <section
       aria-label={`Chat with ${ASSISTANT.name}`}
-      className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30 flex h-[min(34rem,calc(100dvh-6rem))] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-stone-200"
+      className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30 my-0 flex h-[min(34rem,calc(100dvh-6rem))] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-stone-200"
     >
       <header className="flex items-center gap-2 border-b border-stone-100 px-3 py-2">
         <AuntTallyAvatar size={34} />

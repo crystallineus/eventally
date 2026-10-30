@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Footer } from "@/app/components/footer";
 import { Header } from "@/app/components/header";
+import { TourGuide } from "@/app/components/tour-guide";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,6 +31,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </Suspense>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">{children}</main>
         <Footer />
+        <Suspense fallback={null}>
+          <TourGuide />
+        </Suspense>
         {/* Vercel Web Analytics: page views only, no cookies. Does nothing outside Vercel. */}
         <Analytics />
       </body>

@@ -10,7 +10,6 @@ import { ClaimList, CLOSED, Lines, MonthCard, MoreLink, TotalRow } from "./parts
 import { ASSISTANT } from "@/lib/persona";
 import { ActivityList } from "@/app/components/activity-list";
 import { Assistant } from "@/app/components/assistant";
-import { TourCard } from "@/app/components/tour-card";
 import { getTour, pulses } from "@/lib/tour";
 
 export default async function LedgerPage({ searchParams }: PageProps<"/ledger">) {
@@ -28,14 +27,13 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
 
   const openClaims = claims.filter((c) => !CLOSED.includes(c.status));
   const recentMonths = ledger.periods.filter((p, i) => i === 0 || (p.invoice && p.invoice.status !== "paid"));
-  const awaitingPayment = ledger.periods.some((p) => p.invoice?.status === "sent");
+  const awaitingPayment = ledger.periods.find((p) => p.invoice?.status === "sent")?.invoice;
   const outstanding = ledger.periods.find((p) => p.invoice?.status === "sent" || p.invoice?.status === "draft");
 
   return (
     <div className="space-y-10">
-      {awaitingPayment && <PaymentWatcher />}
+      {awaitingPayment && <PaymentWatcher invoiceId={awaitingPayment.id} />}
       <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} pulse={pulses(tour, "aunt_claim")} />
-      {tour && <TourCard tour={tour} />}
       {leases.length > 1 && (
         <nav className="flex flex-wrap gap-2 text-sm">
           {leases.map((l) => (

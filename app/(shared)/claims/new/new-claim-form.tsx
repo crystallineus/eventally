@@ -91,7 +91,7 @@ export function NewClaimForm({ leases, defaultLeaseId, today }: { leases: LeaseO
         </p>
       )}
       <button disabled={busy} className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700 disabled:opacity-50">
-        {busy ? "Uploading…" : "Submit claim"}
+        {busy ? "Uploading…" : "Submit"}
       </button>
     </form>
   );

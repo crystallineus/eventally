@@ -31,6 +31,8 @@ function describe(type: string, data: unknown): string {
       return String(d.summary ?? "Both sides approved.");
     case "claim.amount_changed":
       return `${by} changed the claimed amount from ${formatUsd(Number(d.fromCents ?? 0))} to ${formatUsd(Number(d.toCents ?? 0))}. Any proposed split was cleared.`;
+    case "claim.date_changed":
+      return `${by} changed the date the problem was reported${d.from ? ` from ${d.from}` : ""} to ${d.to}. Any proposed split was cleared.`;
     case "claim.review_requested":
       return `${by} asked ${ASSISTANT.name} to review the claim again.`;
     case "claim.payout_preference":

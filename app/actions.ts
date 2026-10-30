@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -8,11 +8,12 @@ import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { parseUsd } from "@/lib/money";
 import { markNotificationsSeen, setNotifyLevel, type NotifyLevel } from "@/lib/notifications";
-import { DEMO_USER_COOKIE, requireUser } from "@/lib/session";
+import { DEMO_USER_COOKIE, getDemoUsers, requireUser } from "@/lib/session";
 
 export async function switchUser(formData: FormData) {
   const id = String(formData.get("userId") ?? "");
-  const [user] = await db().select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, id));
+  // Only people in this visitor's own demo.
+  const user = (await getDemoUsers()).find((u) => u.id === id);
   if (!user) redirect("/");
   (await cookies()).set(DEMO_USER_COOKIE, user.id, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
   redirect("/ledger");
@@ -55,13 +56,21 @@ export async function createLease(_prev: LeaseFormState, formData: FormData): Pr
 
   const leaseId = await db().transaction(async (tx) => {
     // "Inviting" the tenant creates their account; the invite email arrives with Resend later.
-    const [existing] = await tx.select().from(schema.users).where(eq(schema.users.email, f.tenantEmail));
+    // Tenants are looked up and created inside the landlord's own demo.
+    const inDemo = landlord.demoId ? eq(schema.users.demoId, landlord.demoId) : isNull(schema.users.demoId);
+    const [existing] = await tx.select().from(schema.users).where(and(eq(schema.users.email, f.tenantEmail), inDemo));
     const tenant =
       existing ??
       (
         await tx
           .insert(schema.users)
-          .values({ name: f.tenantName, email: f.tenantEmail, paypalEmail: f.tenantPaypalEmail || f.tenantEmail })
+          .values({
+            demoId: landlord.demoId,
+            name: f.tenantName,
+            email: f.tenantEmail,
+            // In the demo, invoices for a made-up tenant go to the sandbox buyer so they can be paid.
+            paypalEmail: f.tenantPaypalEmail || process.env.PAYPAL_SANDBOX_BUYER_EMAIL || f.tenantEmail,
+          })
           .returning()
       )[0];
     if (tenant.id === landlord.id) throw new Error("You can't rent to yourself");

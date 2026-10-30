@@ -12,6 +12,7 @@ import {
   reviewCount,
   setPayoutPreference,
   updateClaimAmount,
+  updateIssueDate,
   withdrawClaim,
 } from "@/lib/claims";
 import { db, schema } from "@/lib/db";
@@ -44,6 +45,7 @@ export type Action =
   | { kind: "propose_split"; claimId: string; landlordPercent: number; rationale: string }
   | { kind: "withdraw_claim"; claimId: string }
   | { kind: "change_amount"; claimId: string; amount: string }
+  | { kind: "change_date"; claimId: string; date: string }
   | { kind: "set_payout_preference"; claimId: string; wantsPayout: boolean }
   | { kind: "request_review"; claimId: string }
   | { kind: "pay_back_now"; claimId: string }
@@ -97,7 +99,7 @@ export async function prepareAction(
         ...(role === "tenant" ? [`Payback: ${wantsPayout ? "Right away via PayPal" : "Credit on your next rent"}`] : []),
         "I'll review it as soon as it's submitted.",
       ],
-      confirmLabel: "Submit claim",
+      confirmLabel: "Submit",
       needsPhotos: attachments.length > 0,
     };
   }
@@ -137,7 +139,7 @@ export async function prepareAction(
     if (!invoice) return { error: "There's no rent invoice waiting for payment right now." };
     const [me] = await db().select().from(schema.users).where(eq(schema.users.id, userId));
     if (!me?.paypalVaultId) {
-      return { error: `They haven't saved a PayPal yet. Tell them to press "Save my PayPal for rent" on the [ledger](/ledger) first, or pay with the invoice's Pay with PayPal button.` };
+      return { error: `They haven't saved a PayPal yet. Tell them to press Save under "Saved PayPal for rent" on the [ledger](/ledger) first, or pay with the invoice's Pay with PayPal button.` };
     }
     return {
       action: { kind, invoiceId: invoice.id },
@@ -206,7 +208,7 @@ export async function prepareAction(
     case "withdraw_claim":
       if (!mine) return { error: "Only the person who submitted a claim can withdraw it." };
       if (!isOpen(claim)) return { error: `${name} is already closed.` };
-      return { action: { kind, claimId: claim.id }, title: `Withdraw ${name}?`, lines: ["This closes it for both of you and can't be undone."], confirmLabel: "Withdraw claim" };
+      return { action: { kind, claimId: claim.id }, title: `Withdraw ${name}?`, lines: ["This closes it for both of you and can't be undone."], confirmLabel: "Withdraw" };
 
     case "change_amount": {
       if (!mine) return { error: "Only the person who submitted a claim can change its amount." };
@@ -222,6 +224,19 @@ export async function prepareAction(
         title: `Change the amount on ${name}?`,
         lines: [`From ${formatUsd(claim.amountCents ?? 0)} to ${formatUsd(cents)}`, "Any proposed split is cleared; ask for a new review when you're done."],
         confirmLabel: "Change amount",
+      };
+    }
+
+    case "change_date": {
+      if (!mine) return { error: "Only the person who submitted a claim can change its date." };
+      if (!isOpen(claim)) return { error: `${name} is closed.` };
+      const date = String(input.date ?? "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Ask for the date as YYYY-MM-DD." };
+      return {
+        action: { kind, claimId: claim.id, date },
+        title: `Change the reported date on ${name}?`,
+        lines: [`Reported: ${claim.issueReportedAt?.toISOString().slice(0, 10) ?? "not given"} → ${date}`, "Any proposed split is cleared; ask for a new review when you're done."],
+        confirmLabel: "Change date",
       };
     }
 
@@ -293,6 +308,9 @@ export async function performAction(
       case "change_amount":
         await updateClaimAmount(user, action.claimId, parseUsd(action.amount));
         return { message: "Amount changed.", claimId: action.claimId };
+      case "change_date":
+        await updateIssueDate(user, action.claimId, action.date);
+        return { message: "Date changed.", claimId: action.claimId };
       case "set_payout_preference":
         await setPayoutPreference(user, action.claimId, action.wantsPayout);
         return { message: "Saved.", claimId: action.claimId };

@@ -109,6 +109,15 @@ const ACTION_TOOLS: { tool: Anthropic.Beta.BetaTool; kind: Action["kind"]; roles
     tool: { name: "prepare_change_amount", description: "Prepare correcting the amount on a claim they submitted.", input_schema: { type: "object", properties: { ...claimRef, amount: { type: "string" } }, required: ["claim", "amount"] } },
   },
   {
+    kind: "change_date",
+    roles: ["landlord", "tenant"],
+    tool: {
+      name: "prepare_change_date",
+      description: "Prepare correcting the date the problem was reported on a claim they submitted.",
+      input_schema: { type: "object", properties: { ...claimRef, date: { type: "string", description: "YYYY-MM-DD" } }, required: ["claim", "date"] },
+    },
+  },
+  {
     kind: "set_payout_preference",
     roles: ["tenant"],
     tool: {
@@ -162,7 +171,7 @@ function systemPrompt(lease: Lease, role: Role, names: { me: string; other: stri
 
 You're talking with ${names.me}, the ${role} on "${lease.propertyName}" (the ${role === "landlord" ? "tenant" : "landlord"} is ${names.other}). Rent is ${formatUsd(lease.rentCents)} a month, due on day ${lease.dueDay}. Today is ${todayInAppZone()} (Pacific time).
 
-You can explain any month on the ledger line by line, explain a repair claim and where it stands, quote the lease, list what's waiting on ${names.me}, and look an invoice up in PayPal. You can also do things for ${names.me}: submit a claim, add photos, approve or propose a split, withdraw, change an amount${role === "tenant" ? ", ask to be paid back right away, pay a rent invoice with their saved PayPal" : ", pay a claim back via PayPal, send the next rent invoice, send a payment reminder"}, or ask for a new review.
+You can explain any month on the ledger line by line, explain a repair claim and where it stands, quote the lease, list what's waiting on ${names.me}, and look an invoice up in PayPal. You can also do things for ${names.me}: submit a claim, add photos, approve or propose a split, withdraw, change an amount or date${role === "tenant" ? ", ask to be paid back right away, pay a rent invoice with their saved PayPal" : ", pay a claim back via PayPal, send the next rent invoice, send a payment reminder"}, or ask for a new review.
 
 Rules:
 - Look things up with your tools before answering; don't guess.
@@ -171,7 +180,7 @@ Rules:
 - Submitting a claim: ask only for what happened and photos: the receipt, plus before/after if they have them (attached with the paperclip button).${role === "tenant" ? " Also ask whether they'd like to be paid back right away via PayPal or credited on the next rent invoice." : ""} Don't ask for the amount or dates: your review reads them from the receipt (if they mention them, pass them along). Ask for anything missing in one short message. After three rounds of asking, prepare the claim with what you have, as long as there's a receipt photo; your review will ask for anything still missing.
 - After a review, tell them what it found and offer the next step: approve the split, propose a different one, add evidence, or withdraw.
 - Notifications: ${names.me}'s bell is set to "${NOTIFY_LABEL[notify]}". After they submit a claim, approve, or propose a split, say they'll see it under the bell when ${names.other} responds${notify === "off" ? `; since their notifications are off, ask if they'd like "${NOTIFY_LABEL.important}" turned on` : ""}.${role === "tenant" ? `
-- Paying rent: ${savedPayPal ? `${names.me} saved their PayPal (${savedPayPal}) for rent, so you can prepare a Pay card when a rent invoice is waiting. When they ask what they owe, list the unpaid invoice and the approved claims on it, then ask if they'd like to pay it now.` : `${names.me} hasn't saved a PayPal for rent. They can pay with the invoice's Pay with PayPal button, or press "Save my PayPal for rent" on the [ledger](/ledger) once so you can pay for them next time.`}` : ""}
+- Paying rent: ${savedPayPal ? `${names.me} saved their PayPal (${savedPayPal}) for rent, so you can prepare a Pay card when a rent invoice is waiting. When they ask what they owe, list the unpaid invoice and the approved claims on it, then ask if they'd like to pay it now.` : `${names.me} hasn't saved a PayPal for rent. They can pay with the invoice's Pay with PayPal button, or press Save under "Saved PayPal for rent" on the [ledger](/ledger) once so you can pay for them next time.`}` : ""}
 - Link to pages only with a "link" from a tool result, written as [text](/path). Never make up a path.
 - No legal advice. If asked who should pay for a repair, say each claim is settled by both people approving a split.
 - Agreed splits, sent invoices and paid invoices are final. Explain them; don't question them or suggest re-checking. A claim's "background" is the reasoning both sides already accepted.

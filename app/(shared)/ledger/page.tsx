@@ -144,7 +144,7 @@ function SavedPayPal({ email, notice }: { email: string | null; notice: string |
         {email ? (
           <button className="text-sm text-stone-600 underline hover:text-stone-900">Remove saved PayPal</button>
         ) : (
-          <button className="rounded-full bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]">Save my PayPal for rent</button>
+          <button className="rounded-full bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]">Save</button>
         )}
         {notice && VAULT_NOTICE[notice] && <span className="text-sm text-stone-500">{VAULT_NOTICE[notice]}</span>}
       </form>

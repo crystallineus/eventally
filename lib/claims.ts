@@ -5,6 +5,7 @@ import { formatUsd, splitByShare, type Cents } from "@/lib/money";
 import type { User } from "@/lib/session";
 import { putEvidence, type EvidenceKind } from "@/lib/storage";
 import { ASSISTANT } from "@/lib/persona";
+import { todayInAppZone } from "@/lib/time";
 
 type Claim = typeof schema.claims.$inferSelect;
 type Lease = typeof schema.leases.$inferSelect;
@@ -106,7 +107,7 @@ export async function addEvidence(user: User, claimId: string, files: { kind: Ev
       data: { ...viaMeta(), by: user.name, kinds: stored.map((s) => s.kind) },
     });
     // New evidence doesn't start a review by itself: people finish their changes, then use
-    // requestReview ("Ask AI to review again").
+    // requestReview ("Review again").
     if (found.claim.status === "awaiting_approval") await clearApprovals(tx, claimId);
   });
 }
@@ -295,6 +296,34 @@ export async function approveClaim(user: User, claimId: string) {
  */
 export async function updateClaimAmount(user: User, claimId: string, amountCents: Cents) {
   if (!Number.isSafeInteger(amountCents) || amountCents <= 0) throw new Error("The amount must be more than $0");
+  await changeSubmittedFact(user, claimId, "amount", (claim) =>
+    claim.amountCents === amountCents
+      ? null
+      : { set: { amountCents }, type: "claim.amount_changed", data: { fromCents: claim.amountCents, toCents: amountCents } },
+  );
+}
+
+/** Correct the day the problem was reported (YYYY-MM-DD); the date check depends on it. */
+export async function updateIssueDate(user: User, claimId: string, isoDate: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate) || Number.isNaN(Date.parse(isoDate))) throw new Error("Pick a date");
+  if (isoDate > todayInAppZone()) throw new Error("The date can't be in the future");
+  const issueReportedAt = new Date(`${isoDate}T12:00:00Z`);
+  await changeSubmittedFact(user, claimId, "date", (claim) => {
+    const from = claim.issueReportedAt?.toISOString().slice(0, 10) ?? null;
+    return from === isoDate ? null : { set: { issueReportedAt }, type: "claim.date_changed", data: { from, to: isoDate } };
+  });
+}
+
+/**
+ * The submitter corrects something the review relies on (amount, date). Any proposed split is
+ * cleared and the claim waits for "Review again", unless the first review hasn't run yet.
+ */
+async function changeSubmittedFact(
+  user: User,
+  claimId: string,
+  what: string,
+  change: (claim: Claim) => { set: Partial<Claim>; type: string; data: Record<string, unknown> } | null,
+) {
   await db().transaction(async (tx) => {
     const [row] = await tx
       .select({ claim: schema.claims, lease: schema.leases })
@@ -302,16 +331,16 @@ export async function updateClaimAmount(user: User, claimId: string, amountCents
       .innerJoin(schema.leases, eq(schema.claims.leaseId, schema.leases.id))
       .where(eq(schema.claims.id, claimId))
       .for("update", { of: schema.claims });
-    if (!row || row.claim.submittedBy !== user.id) throw new Error("Only the person who submitted a claim can change its amount");
+    if (!row || row.claim.submittedBy !== user.id) throw new Error(`Only the person who submitted a claim can change its ${what}`);
     if (!isOpen(row.claim)) throw new Error("This claim is closed");
     if (row.claim.reviewStartedAt) throw new Error(`${ASSISTANT.name} is still reviewing. Try again when she finishes.`);
-    if (row.claim.amountCents === amountCents) return;
+    const changed = change(row.claim);
+    if (!changed) return;
 
     await tx
       .update(schema.claims)
       .set({
-        amountCents,
-        // Wait for "Ask AI to review again" unless the first review hasn't run yet.
+        ...changed.set,
         status: row.claim.status === "reviewing" ? "reviewing" : "needs_evidence",
         landlordShareCents: null,
         tenantShareCents: null,
@@ -326,8 +355,8 @@ export async function updateClaimAmount(user: User, claimId: string, amountCents
       leaseId: row.lease.id,
       claimId,
       actor: roleOf(row.lease, user.id),
-      type: "claim.amount_changed",
-      data: { ...viaMeta(), by: user.name, fromCents: row.claim.amountCents, toCents: amountCents },
+      type: changed.type,
+      data: { ...viaMeta(), by: user.name, ...changed.data },
     });
   });
 }

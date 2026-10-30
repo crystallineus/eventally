@@ -47,7 +47,7 @@ export function EditAmount({ claimId, amountCents, receiptTotalCents }: { claimI
         </button>
       )}
       {state.error && <p role="alert" className="text-red-700">{state.error}</p>}
-      {editing && <p className="max-w-56 text-right text-stone-500">Changing the amount clears any proposed split. Ask Aunt Tally to review again when you&apos;re done.</p>}
+      {editing && <p className="max-w-56 text-right text-stone-500">Changing the amount clears any proposed split. Press Review again when you&apos;re done.</p>}
     </div>
   );
 }

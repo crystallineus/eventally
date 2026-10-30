@@ -146,7 +146,7 @@ export async function explainClaim(lease: Lease, role: Role, ref: string) {
     c.status === "awaiting_approval"
       ? myApproval ? "You approved; waiting for the other side." : "Your turn: approve the split or propose a different one."
       : c.status === "needs_evidence"
-        ? "Make the changes (photos, amount), then ask Aunt Tally to review again, or propose a split yourself."
+        ? "Make the changes (photos, amount, date), then press Review again, or propose a split yourself."
         : c.status === "approved"
           ? role === "landlord" && c.tenantWantsPayout && c.submittedBy !== lease.landlordId
             ? "The tenant asked to be paid back now: pay it back via PayPal or leave it for the next rent invoice."

@@ -18,6 +18,13 @@ export default async function NewClaimPage({ searchParams }: PageProps<"/claims/
           Paid for a repair out of pocket? Add the receipt and photos. The other side sees exactly what you upload, and
           once you both agree on the split, it&apos;s settled on the next rent invoice.
         </p>
+        <p className="mt-2 text-sm text-stone-500">
+          Trying the demo?{" "}
+          <a href="/eventally-sample-photos.zip" download className="font-medium text-sky-700 underline hover:text-sky-900">
+            Download sample photos
+          </a>{" "}
+          (fictional receipts and before/after photos).
+        </p>
       </div>
       <NewClaimForm
         leases={leases.map((l) => ({ id: l.id, name: l.propertyName, isTenant: l.tenantId === user.id, landlordName: l.landlord.name.split(" ")[0] }))}

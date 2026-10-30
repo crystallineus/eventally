@@ -24,25 +24,49 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
 const id = () => uuid("id").primaryKey().defaultRandom();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
+/**
+ * One visitor's private copy of the demo (Tom, Maya, their lease and history), so people trying
+ * the app at the same time don't see or change each other's data. Old ones are deleted.
+ */
+export const demos = pgTable("demos", {
+  id: id(),
+  createdAt: createdAt(),
+});
+
+/** Sample photos shared by every demo's starting claims, stored once instead of per demo. */
+export const demoPhotos = pgTable("demo_photos", {
+  name: text("name").primaryKey(),
+  mimeType: text("mime_type").notNull(),
+  data: bytea("data").notNull(),
+  sha256: text("sha256").notNull(),
+});
+
 /** What shows up in the bell (and, later, email): only things that need you, every update, or nothing. */
 export const notifyLevel = pgEnum("notify_level", NOTIFY_LEVELS);
 
-export const users = pgTable("users", {
-  id: id(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  /** Landlord's business name as shown on PayPal invoices, e.g. "SJ Rentals". */
-  businessName: text("business_name"),
-  /** Where invoices are sent (tenant) or the PayPal merchant account (landlord). */
-  paypalEmail: text("paypal_email"),
-  /** Tenant's PayPal saved with PayPal Vault, so Aunt Tally can pay rent when they confirm. */
-  paypalVaultId: text("paypal_vault_id"),
-  paypalVaultEmail: text("paypal_vault_email"),
-  notify: notifyLevel("notify").notNull().default("important"),
-  /** Bell items up to here have been seen. */
-  notificationsSeenAt: timestamp("notifications_seen_at", { withTimezone: true }),
-  createdAt: createdAt(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    /** The demo this person belongs to; null only for rows made before demos existed. */
+    demoId: uuid("demo_id").references(() => demos.id),
+    /** Unique within a demo: every demo has its own tom@eventally.demo. */
+    email: text("email").notNull(),
+    /** Landlord's business name as shown on PayPal invoices, e.g. "SJ Rentals". */
+    businessName: text("business_name"),
+    /** Where invoices are sent (tenant) or the PayPal merchant account (landlord). */
+    paypalEmail: text("paypal_email"),
+    /** Tenant's PayPal saved with PayPal Vault, so Aunt Tally can pay rent when they confirm. */
+    paypalVaultId: text("paypal_vault_id"),
+    paypalVaultEmail: text("paypal_vault_email"),
+    notify: notifyLevel("notify").notNull().default("important"),
+    /** Bell items up to here have been seen. */
+    notificationsSeenAt: timestamp("notifications_seen_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("users_demo_email_idx").on(t.demoId, t.email), index("users_demo_idx").on(t.demoId)],
+);
 
 export const leases = pgTable(
   "leases",
@@ -124,13 +148,19 @@ export const evidence = pgTable(
     kind: evidenceKind("kind").notNull(),
     uploadedBy: uuid("uploaded_by").notNull().references(() => users.id),
     mimeType: text("mime_type").notNull(),
-    data: bytea("data").notNull(),
+    /** The file itself, or null when it's a shared sample photo (`demoPhoto`). Read via lib/storage.ts. */
+    data: bytea("data"),
+    demoPhoto: text("demo_photo").references(() => demoPhotos.name),
     sha256: text("sha256").notNull(),
     /** Receipt fields read by the agent (validated with zod before saving). */
     extracted: jsonb("extracted"),
     createdAt: createdAt(),
   },
-  (t) => [index("evidence_claim_idx").on(t.claimId), index("evidence_sha256_idx").on(t.sha256)],
+  (t) => [
+    index("evidence_claim_idx").on(t.claimId),
+    index("evidence_sha256_idx").on(t.sha256),
+    check("evidence_has_file", sql`${t.data} is not null or ${t.demoPhoto} is not null`),
+  ],
 );
 
 export const ledgerKind = pgEnum("ledger_kind", ["rent", "charge", "credit", "carry_over", "payment", "payout"]);

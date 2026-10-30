@@ -54,6 +54,7 @@ export function NewLeaseForm() {
         </Label>
         <Label text="PayPal email (if different)">
           <input name="tenantPaypalEmail" type="email" defaultValue={v.tenantPaypalEmail} className={input} />
+          <span className="mt-1 block text-xs text-stone-500">Demo: leave blank and invoices go to the PayPal sandbox buyer, so you can pay them.</span>
         </Label>
       </fieldset>
 

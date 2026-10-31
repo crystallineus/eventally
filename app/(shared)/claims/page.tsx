@@ -4,6 +4,7 @@ import { Assistant } from "@/app/components/assistant";
 import { listClaims } from "@/lib/claims";
 import { getLeasesForUser, roleIn } from "@/lib/ledger";
 import { requireUser } from "@/lib/session";
+import { getTour, nextHrefFor } from "@/lib/tour";
 import { ClaimList, CLOSED } from "../ledger/parts";
 
 // Every repair claim on a lease: open ones first, then closed (settled, paid back, withdrawn).
@@ -13,7 +14,7 @@ export default async function ClaimsPage({ searchParams }: PageProps<"/claims">)
   const leases = await getLeasesForUser(user.id);
   const lease = leases.find((l) => l.id === leaseParam) ?? leases[0];
   if (!lease) notFound();
-  const claims = await listClaims(lease.id);
+  const [claims, tour] = await Promise.all([listClaims(lease.id), getTour(user)]);
   const open = claims.filter((c) => !CLOSED.includes(c.status));
   const closed = claims.filter((c) => CLOSED.includes(c.status));
 
@@ -29,7 +30,7 @@ export default async function ClaimsPage({ searchParams }: PageProps<"/claims">)
       {Object.entries({ Open: open, Closed: closed }).map(([label, list]) => (
         <section key={label}>
           <h2 className="mb-2 font-semibold">{label}</h2>
-          {list.length ? <ClaimList claims={list} lease={lease} /> : <p className="text-sm text-stone-500">None.</p>}
+          {list.length ? <ClaimList claims={list} lease={lease} pulseHref={nextHrefFor(tour)} /> : <p className="text-sm text-stone-500">None.</p>}
         </section>
       ))}
     </div>

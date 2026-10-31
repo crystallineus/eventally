@@ -41,6 +41,8 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
   ]);
   // The trial checklist points at this claim's Approve button when approving it is the next step.
   const approvePulses = pulses(tour, "approve") && tour?.next?.href === `/claims/${claim.id}`;
+  // Next step happens on the ledger (send the invoice, pay it): light the way back there.
+  const backPulses = pulses(tour, "send_invoice") || pulses(tour, "pay");
 
   const submitter = names.get(claim.submittedBy) ?? "Unknown";
   const tenantPaid = claim.submittedBy !== lease.landlordId;
@@ -68,7 +70,10 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
   return (
     <div className="space-y-8">
       <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} pulse={pulses(tour, "aunt_claim")} />
-      <Link href={`/ledger?lease=${lease.id}`} className="text-sm text-stone-600 hover:text-stone-900">
+      <Link
+        href={`/ledger?lease=${lease.id}`}
+        className={`rounded-full text-sm text-stone-600 hover:text-stone-900 ${backPulses ? "tour-pulse px-2 py-1" : ""}`}
+      >
         ← {lease.propertyName} ledger
       </Link>
 

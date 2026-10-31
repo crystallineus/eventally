@@ -76,6 +76,14 @@ export async function getTour(user: User): Promise<Tour | null> {
   };
 }
 
+/**
+ * Where this person should go for their next step (null when it's the other person's turn), so a
+ * page can light up the link that leads there, e.g. the claim row on the ledger.
+ */
+export function nextHrefFor(tour: Tour | null) {
+  return tour?.next && tour.next.role === tour.role ? tour.next.href : null;
+}
+
 /** True when `key` is the next step and it's this person's to do: its button should pulse. */
 export function pulses(tour: Tour | null, key: TourStepKey) {
   return !!tour?.next && tour.next.key === key && tour.next.role === tour.role;

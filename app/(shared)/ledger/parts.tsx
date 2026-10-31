@@ -88,12 +88,16 @@ export function MonthCard({
   );
 }
 
-export function ClaimList({ claims, lease }: { claims: Claim[]; lease: LeaseWithParties }) {
+/** `pulseHref`: the trial tour's next page; the claim row that leads there glows. */
+export function ClaimList({ claims, lease, pulseHref = null }: { claims: Claim[]; lease: LeaseWithParties; pulseHref?: string | null }) {
   return (
     <ul className="divide-y divide-stone-100 rounded-2xl bg-white shadow-card">
       {claims.map((c) => (
         <li key={c.id}>
-          <Link href={`/claims/${c.id}`} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 hover:bg-stone-50">
+          <Link
+            href={`/claims/${c.id}`}
+            className={`flex flex-wrap items-center justify-between gap-2 px-5 py-3 hover:bg-stone-50 ${pulseHref === `/claims/${c.id}` ? "tour-pulse rounded-2xl" : ""}`}
+          >
             <span>
               <span className="font-medium">{c.title}</span>
               <span className="ml-2 text-sm text-stone-500">

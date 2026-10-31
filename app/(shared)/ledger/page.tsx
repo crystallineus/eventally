@@ -10,7 +10,7 @@ import { ClaimList, CLOSED, Lines, MonthCard, MoreLink, TotalRow } from "./parts
 import { ASSISTANT } from "@/lib/persona";
 import { ActivityList } from "@/app/components/activity-list";
 import { Assistant } from "@/app/components/assistant";
-import { getTour, pulses } from "@/lib/tour";
+import { getTour, nextHrefFor, pulses } from "@/lib/tour";
 
 export default async function LedgerPage({ searchParams }: PageProps<"/ledger">) {
   const user = await requireUser();
@@ -66,7 +66,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
             {claims.length ? "No open claims." : "No claims yet."} Paid for a repair? Submit the receipt and photos here.
           </p>
         ) : (
-          <ClaimList claims={openClaims} lease={lease} />
+          <ClaimList claims={openClaims} lease={lease} pulseHref={nextHrefFor(tour)} />
         )}
         {claims.length > openClaims.length && (
           <MoreLink href={`/claims?lease=${lease.id}`} label={`Show all ${claims.length} claims (${claims.length - openClaims.length} closed)`} />

@@ -139,7 +139,7 @@ export async function prepareAction(
     if (!invoice) return { error: "There's no rent invoice waiting for payment right now." };
     const [me] = await db().select().from(schema.users).where(eq(schema.users.id, userId));
     if (!me?.paypalVaultId) {
-      return { error: `They haven't saved a PayPal yet. Tell them to press Save under "Saved PayPal for rent" on the [ledger](/ledger) first, or pay with the invoice's Pay with PayPal button.` };
+      return { error: `They haven't saved a PayPal yet. Tell them to press Save under "Saved PayPal for rent" on the [ledger](/ledger) first, or pay with the invoice's Pay button.` };
     }
     return {
       action: { kind, invoiceId: invoice.id },

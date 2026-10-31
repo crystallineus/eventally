@@ -18,7 +18,7 @@ export function PayBackButton({ claimId, amount, tenantName }: { claimId: string
     >
       <input type="hidden" name="claimId" value={claimId} />
       <button disabled={pending} className="rounded-full bg-[#0070ba] px-4 py-2 text-sm font-medium text-white hover:bg-[#005ea6] disabled:opacity-50">
-        {pending ? "Sending…" : `Pay ${tenantName} back now via PayPal`}
+        {pending ? "Sending…" : "Pay back now"}
       </button>
       {state.error && <p role="alert" className="w-full text-sm text-red-700">{state.error}</p>}
     </form>

@@ -44,6 +44,15 @@ export function Assistant({ leaseId, role, firstName, pulse = false }: { leaseId
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // The message box grows with what's typed, up to about five lines, then scrolls inside.
+  useEffect(() => {
+    const box = inputRef.current;
+    if (!box) return;
+    box.style.height = "auto";
+    box.style.height = `${box.scrollHeight}px`;
+  }, [input, open]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
@@ -264,7 +273,7 @@ export function Assistant({ leaseId, role, firstName, pulse = false }: { leaseId
           e.preventDefault();
           ask(input);
         }}
-        className="flex gap-2 border-t border-stone-100 p-2"
+        className="flex items-end gap-2 border-t border-stone-100 p-2"
       >
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(e.target.files)} />
         <button
@@ -279,12 +288,21 @@ export function Assistant({ leaseId, role, firstName, pulse = false }: { leaseId
             <path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" />
           </svg>
         </button>
-        <input
+        <textarea
+          ref={inputRef}
+          rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter sends, Shift+Enter adds a line; never mid-composition (Chinese, Japanese input).
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+          }}
           placeholder={`Ask ${ASSISTANT.name}…`}
           aria-label={`Message ${ASSISTANT.name}`}
-          className="flex-1 rounded-xl border border-stone-300 px-3 py-2 text-sm focus:border-stone-900 focus:outline-none"
+          className="max-h-32 min-h-[2.375rem] flex-1 resize-none rounded-xl border border-stone-300 px-3 py-2 text-sm leading-5 focus:border-stone-900 focus:outline-none"
         />
         <button disabled={!!busy || (!input.trim() && !draft.length)} className="rounded-full bg-stone-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40">
           Send

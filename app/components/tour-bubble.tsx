@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { hideTour, switchUser } from "@/app/actions";
 import { TRY_SAMPLE_EVENT } from "@/app/components/assistant";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
@@ -51,6 +51,7 @@ export function TourBubble({
   const pathname = usePathname();
   const minimized = useSyncExternalStore(subscribe, readMinimized, () => false);
   const setMin = writeMinimized;
+  useScrollToGlow(step ? `${pathname}#${step.index}` : null);
 
   const position = "fixed right-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] z-20";
   if (minimized) {
@@ -90,6 +91,29 @@ export function TourBubble({
       </div>
     </section>
   );
+}
+
+/**
+ * Once per step and page, bring the glowing element into view if it's off screen. Skips the sticky
+ * header (always visible) and copies of earlier pages Next keeps hidden for instant back.
+ */
+function useScrollToGlow(key: string | null) {
+  const done = useRef<string | null>(null);
+  useEffect(() => {
+    if (!key || done.current === key) return;
+    const timer = setTimeout(() => {
+      const target = [...document.querySelectorAll<HTMLElement>(".tour-pulse")].find(
+        (el) => el.getClientRects().length > 0 && !el.closest("header"),
+      );
+      if (!target) return;
+      done.current = key;
+      const box = target.getBoundingClientRect();
+      if (box.top >= 72 && box.bottom <= window.innerHeight - 96) return; // already in view
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [key]);
 }
 
 function Action({ action, pathname }: { action: BubbleAction | null; pathname: string }) {

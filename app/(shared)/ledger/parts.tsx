@@ -78,7 +78,7 @@ export function MonthCard({
                   : `rounded-full bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36] ${pulse ? "tour-pulse" : ""}`
               }
             >
-              {canPaySaved ? "Pay another way" : "Pay with PayPal"}
+              {canPaySaved ? "Pay another way" : "Pay"}
             </a>
           )}
           {role === "landlord" && <RefreshInvoiceButton invoiceId={p.invoice.id} draft={p.invoice.status === "draft"} />}

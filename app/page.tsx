@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { switchUser } from "@/app/actions";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
+import { FormBusy, PostForm } from "@/app/components/busy";
 import { DEMO_DAYS } from "@/lib/demo";
 import { ASSISTANT } from "@/lib/persona";
 import { getCurrentUser, getDemoUsers } from "@/lib/session";
@@ -35,13 +36,14 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           {users.map((u) => (
             <PersonButton key={u.id} name="userId" value={u.id} title={u.name} subtitle={`${u.role}${u.businessName ? ` · ${u.businessName}` : ""}`} />
           ))}
+          <FormBusy message="Opening your demo…" />
         </form>
       ) : (
         // First visit: each visitor gets their own copy of the demo, so nobody steps on anyone else.
-        <form action="/api/demo/start" method="post" className="mt-3 grid gap-3 sm:grid-cols-2">
+        <PostForm action="/api/demo/start" message="Setting up your demo…" className="mt-3 grid gap-3 sm:grid-cols-2">
           <PersonButton name="role" value="tenant" title="Maya Chen" subtitle="tenant · paid a plumber, waiting on Tom" />
           <PersonButton name="role" value="landlord" title="Tom Becker" subtitle="landlord · SJ Rentals · a claim is waiting on you" />
-        </form>
+        </PostForm>
       )}
       {demo === "failed" && <p className="mt-3 text-sm text-red-700">The demo couldn&apos;t start. Please try again in a moment.</p>}
       <p className="mt-4 text-sm text-stone-500">Your demo is private to this browser and resets after {DEMO_DAYS} days. You can switch between Tom and Maya at the top.</p>

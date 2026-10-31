@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
+import { FormBusy } from "@/app/components/busy";
 import { switchUser } from "@/app/actions";
 import { describeEvent } from "@/app/components/event-label";
 import { NotificationBell } from "@/app/components/notification-bell";
@@ -75,6 +76,7 @@ export async function Header() {
                 <span className="opacity-70">({u.role})</span>
               </button>
             ))}
+            <FormBusy message="Switching…" />
           </form>
         )}
       </div>

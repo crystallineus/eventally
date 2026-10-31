@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
 import { resizeImage } from "@/app/components/resize-images";
 import { loadSamplePhotos } from "@/app/components/sample-photos";
@@ -14,6 +14,54 @@ type Kind = "receipt" | "before" | "after";
 type Photo = { kind: Kind; file: File; url: string };
 
 const KIND_LABEL: Record<Kind, string> = { receipt: "Receipt", before: "Before", after: "After" };
+
+type Chat = { open: boolean; messages: Message[]; pending: Pending | null; draft: Photo[]; sent: Photo[]; input: string; busy: string | null };
+type Update<T> = T | ((current: T) => T);
+
+// One conversation per person (lease + role), shared by every page's chat window: Next keeps the
+// previous page alive but hidden, so a page-local copy would go stale. Moving between pages keeps
+// everything (photos too); a reload restores the text from sessionStorage, which the browser clears
+// when the tab closes. Photos can't survive a reload, so neither does a card that would send them.
+const chats = new Map<string, Chat>();
+const chatListeners = new Set<() => void>();
+const startingChats = new Map<string, Chat>();
+
+function startingChat(key: string, greeting: string): Chat {
+  if (!startingChats.has(key)) {
+    startingChats.set(key, { open: false, messages: [{ role: "assistant", text: greeting }], pending: null, draft: [], sent: [], input: "", busy: null });
+  }
+  return startingChats.get(key)!;
+}
+
+function readChat(key: string, greeting: string): Chat {
+  let chat = chats.get(key);
+  if (!chat) {
+    chat = startingChat(key, greeting);
+    try {
+      const stored = JSON.parse(sessionStorage.getItem(key) ?? "null") as Pick<Chat, "messages" | "pending" | "input"> | null;
+      if (stored?.messages?.length) {
+        chat = { ...chat, messages: stored.messages, pending: stored.pending?.needsPhotos ? null : stored.pending, input: stored.input ?? "" };
+      }
+    } catch {}
+    chats.set(key, chat);
+  }
+  return chat;
+}
+
+function writeChat(key: string, change: (chat: Chat) => Chat) {
+  const chat = change(chats.get(key)!);
+  chats.set(key, chat);
+  try {
+    const messages = chat.messages.map(({ role, text }) => ({ role, text }));
+    sessionStorage.setItem(key, JSON.stringify({ messages, pending: chat.pending, input: chat.input }));
+  } catch {}
+  chatListeners.forEach((listener) => listener());
+}
+
+function subscribeChats(listener: () => void) {
+  chatListeners.add(listener);
+  return () => chatListeners.delete(listener);
+}
 
 /** Fired by the trial checklist to start the sample claim in the chat. */
 export const TRY_SAMPLE_EVENT = "eventally:try-sample-claim";
@@ -28,20 +76,28 @@ const SUGGESTIONS = {
 // tab. She can prepare actions, but each one runs only when the person presses the card's button.
 export function Assistant({ leaseId, role, firstName, pulse = false }: { leaseId: string; role: "landlord" | "tenant"; firstName: string; pulse?: boolean }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      text: `Hi ${firstName}, I'm ${ASSISTANT.name}, the AI assistant here. I can explain your bill, tell you what's waiting on you, or take care of a claim or payment with you. I'll always ask before I do anything.`,
-    },
-  ]);
-  const [pending, setPending] = useState<Pending | null>(null);
+  const key = `eventally-chat:${leaseId}:${role}`;
+  const greeting = `Hi ${firstName}, I'm ${ASSISTANT.name}, the AI assistant here. I can explain your bill, tell you what's waiting on you, or take care of a claim or payment with you. I'll always ask before I do anything.`;
+  const chat = useSyncExternalStore(
+    subscribeChats,
+    () => readChat(key, greeting),
+    () => startingChat(key, greeting),
+  );
+  const { open, messages, pending, draft, sent, busy, input } = chat;
+  // Setters with useState's shape, writing to the shared conversation.
+  const setter =
+    <K extends keyof Chat>(field: K) =>
+    (value: Update<Chat[K]>) =>
+      writeChat(key, (c) => ({ ...c, [field]: typeof value === "function" ? (value as (v: Chat[K]) => Chat[K])(c[field]) : value }));
+  const setOpen = setter("open");
+  const setMessages = setter("messages");
   // `draft`: photos in the tray above the input. `sent`: photos already sent in the chat that no card
   // has used yet; they go along when a card that needs photos is confirmed.
-  const [draft, setDraft] = useState<Photo[]>([]);
-  const [sent, setSent] = useState<Photo[]>([]);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [input, setInput] = useState("");
+  const setPending = setter("pending");
+  const setDraft = setter("draft");
+  const setSent = setter("sent");
+  const setBusy = setter("busy");
+  const setInput = setter("input");
   const listRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);

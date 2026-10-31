@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
 import { resizeImage } from "@/app/components/resize-images";
+import { loadSamplePhotos } from "@/app/components/sample-photos";
 import { ASSISTANT } from "@/lib/persona";
 
 type Message = { role: "user" | "assistant"; text: string; photos?: Photo[] };
@@ -14,6 +15,10 @@ type Photo = { kind: Kind; file: File; url: string };
 
 const KIND_LABEL: Record<Kind, string> = { receipt: "Receipt", before: "Before", after: "After" };
 
+/** Fired by the trial checklist to start the sample claim in the chat. */
+export const TRY_SAMPLE_EVENT = "eventally:try-sample-claim";
+const SAMPLE_REQUEST = "Help me submit a repair claim: the range hood light stopped working and a technician fixed it.";
+
 const SUGGESTIONS = {
   tenant: ["What's waiting on me?", "Explain my latest bill", "Help me submit a repair claim"],
   landlord: ["What do I need to do?", "Explain the latest invoice", "Send a payment reminder"],
@@ -21,7 +26,7 @@ const SUGGESTIONS = {
 
 // "Ask Aunt Tally": a floating chat panel for one lease. The conversation lives only in this browser
 // tab. She can prepare actions, but each one runs only when the person presses the card's button.
-export function Assistant({ leaseId, role, firstName }: { leaseId: string; role: "landlord" | "tenant"; firstName: string }) {
+export function Assistant({ leaseId, role, firstName, pulse = false }: { leaseId: string; role: "landlord" | "tenant"; firstName: string; pulse?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -39,6 +44,15 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // The message box grows with what's typed, up to about five lines, then scrolls inside.
+  useEffect(() => {
+    const box = inputRef.current;
+    if (!box) return;
+    box.style.height = "auto";
+    box.style.height = `${box.scrollHeight}px`;
+  }, [input, open]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
@@ -114,6 +128,35 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
     await ask("How did the review go?", [...messages, { role: "assistant", text: done }]);
   }
 
+  // The trial checklist's "file a claim with Aunt Tally" step: open the chat with the range hood
+  // sample photos attached and the request typed out, ready to send.
+  async function trySample() {
+    setOpen(true);
+    setInput(SAMPLE_REQUEST);
+    try {
+      const samples = await loadSamplePhotos();
+      const resized = await Promise.all(samples.map(async (s) => ({ kind: s.kind, file: await resizeImage(s.file) })));
+      setDraft(resized.map(({ kind, file }) => ({ kind, file, url: URL.createObjectURL(file) })));
+    } catch (err) {
+      say(err instanceof Error ? err.message : "I couldn't load the sample photos.");
+    }
+  }
+
+  useEffect(() => {
+    const start = () => void trySample();
+    if (window.location.hash === "#aunt-claim") {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+      start();
+    }
+    window.addEventListener(TRY_SAMPLE_EVENT, start);
+    document.body.dataset.aunt = "on"; // lets the tour bubble open this chat instead of navigating
+    return () => {
+      window.removeEventListener(TRY_SAMPLE_EVENT, start);
+      delete document.body.dataset.aunt;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function addPhotos(files: FileList | null) {
     if (!files?.length) return;
     try {
@@ -129,7 +172,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30 flex items-center gap-2 rounded-full bg-white py-1.5 pr-4 pl-1.5 text-sm font-medium text-stone-800 shadow-lg ring-1 ring-stone-200 hover:ring-stone-400"
+        className={`fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30 my-0 flex items-center gap-2 rounded-full bg-white py-1.5 pr-4 pl-1.5 text-sm font-medium text-stone-800 shadow-lg ring-1 ring-stone-200 hover:ring-stone-400 ${pulse ? "tour-pulse" : ""}`}
       >
         <AuntTallyAvatar size={36} />
         Ask {ASSISTANT.name}
@@ -140,7 +183,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
   return (
     <section
       aria-label={`Chat with ${ASSISTANT.name}`}
-      className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30 flex h-[min(34rem,calc(100dvh-6rem))] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-stone-200"
+      className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30 my-0 flex h-[min(34rem,calc(100dvh-6rem))] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-stone-200"
     >
       <header className="flex items-center gap-2 border-b border-stone-100 px-3 py-2">
         <AuntTallyAvatar size={34} />
@@ -185,6 +228,9 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
                 {s}
               </button>
             ))}
+            <button onClick={() => trySample()} className="rounded-full border border-sky-300 bg-sky-50 px-3 py-1 text-xs text-sky-800 hover:border-sky-500">
+              Try a sample claim with photos
+            </button>
           </div>
         )}
       </div>
@@ -227,7 +273,7 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
           e.preventDefault();
           ask(input);
         }}
-        className="flex gap-2 border-t border-stone-100 p-2"
+        className="flex items-end gap-2 border-t border-stone-100 p-2"
       >
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(e.target.files)} />
         <button
@@ -242,12 +288,21 @@ export function Assistant({ leaseId, role, firstName }: { leaseId: string; role:
             <path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" />
           </svg>
         </button>
-        <input
+        <textarea
+          ref={inputRef}
+          rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter sends, Shift+Enter adds a line; never mid-composition (Chinese, Japanese input).
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+          }}
           placeholder={`Ask ${ASSISTANT.name}…`}
           aria-label={`Message ${ASSISTANT.name}`}
-          className="flex-1 rounded-xl border border-stone-300 px-3 py-2 text-sm focus:border-stone-900 focus:outline-none"
+          className="max-h-32 min-h-[2.375rem] flex-1 resize-none rounded-xl border border-stone-300 px-3 py-2 text-sm leading-5 focus:border-stone-900 focus:outline-none"
         />
         <button disabled={!!busy || (!input.trim() && !draft.length)} className="rounded-full bg-stone-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40">
           Send

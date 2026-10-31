@@ -28,12 +28,15 @@ export function MonthCard({
   role,
   canPaySaved,
   link = true,
+  pulse = false,
 }: {
   p: PeriodView;
   lease: LeaseWithParties;
   role: "landlord" | "tenant";
   canPaySaved: boolean;
   link?: boolean;
+  /** The trial checklist's next step is paying: make the main pay button glow. */
+  pulse?: boolean;
 }) {
   return (
     <div className="rounded-2xl bg-white shadow-card p-5">
@@ -62,7 +65,7 @@ export function MonthCard({
         <div className="mt-3 flex flex-wrap items-center gap-4">
           {/* With a saved PayPal that's the one button; the invoice link stays as a quiet fallback (Venmo, card, a decline). */}
           {role === "tenant" && p.invoice.status === "sent" && canPaySaved && (
-            <PayWithSavedButton leaseId={lease.id} invoiceId={p.invoice.id} label={`Pay ${formatUsd(p.invoice.totalCents)} with saved PayPal`} />
+            <PayWithSavedButton leaseId={lease.id} invoiceId={p.invoice.id} label={`Pay ${formatUsd(p.invoice.totalCents)} with saved PayPal`} pulse={pulse} />
           )}
           {role === "tenant" && p.invoice.status === "sent" && p.invoice.payerUrl && (
             <a
@@ -72,10 +75,10 @@ export function MonthCard({
               className={
                 canPaySaved
                   ? "text-sm text-stone-600 underline hover:text-stone-900"
-                  : "rounded-full bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]"
+                  : `rounded-full bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36] ${pulse ? "tour-pulse" : ""}`
               }
             >
-              {canPaySaved ? "Pay another way" : "Pay with PayPal"}
+              {canPaySaved ? "Pay another way" : "Pay"}
             </a>
           )}
           {role === "landlord" && <RefreshInvoiceButton invoiceId={p.invoice.id} draft={p.invoice.status === "draft"} />}
@@ -85,12 +88,16 @@ export function MonthCard({
   );
 }
 
-export function ClaimList({ claims, lease }: { claims: Claim[]; lease: LeaseWithParties }) {
+/** `pulseHref`: the trial tour's next page; the claim row that leads there glows. */
+export function ClaimList({ claims, lease, pulseHref = null }: { claims: Claim[]; lease: LeaseWithParties; pulseHref?: string | null }) {
   return (
     <ul className="divide-y divide-stone-100 rounded-2xl bg-white shadow-card">
       {claims.map((c) => (
         <li key={c.id}>
-          <Link href={`/claims/${c.id}`} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 hover:bg-stone-50">
+          <Link
+            href={`/claims/${c.id}`}
+            className={`flex flex-wrap items-center justify-between gap-2 px-5 py-3 hover:bg-stone-50 ${pulseHref === `/claims/${c.id}` ? "tour-pulse rounded-2xl" : ""}`}
+          >
             <span>
               <span className="font-medium">{c.title}</span>
               <span className="ml-2 text-sm text-stone-500">

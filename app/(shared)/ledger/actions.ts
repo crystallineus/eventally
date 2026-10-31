@@ -56,3 +56,20 @@ export async function payWithSaved(_prev: InvoiceFormState, formData: FormData):
   revalidatePath("/ledger");
   return { error: null };
 }
+
+/** Either side's ledger asks PayPal whether a sent invoice was paid (backup for the webhook). */
+export async function checkPayment(invoiceId: string): Promise<string> {
+  const user = await requireUser();
+  if (!/^[0-9a-f-]{36}$/i.test(invoiceId)) return "not_found";
+  const [row] = await db()
+    .select({ invoice: schema.invoices, landlordId: schema.leases.landlordId, tenantId: schema.leases.tenantId })
+    .from(schema.invoices)
+    .innerJoin(schema.leases, eq(schema.invoices.leaseId, schema.leases.id))
+    .where(eq(schema.invoices.id, invoiceId));
+  if (!row || (row.landlordId !== user.id && row.tenantId !== user.id)) return "not_found";
+  try {
+    return await syncInvoice(invoiceId);
+  } catch {
+    return "error";
+  }
+}

@@ -55,3 +55,26 @@
   outline: 2px solid var(--color-glaucous);
   outline-offset: 2px;
 }
+
+/*
+ * The trial checklist's "do this next" hint: a soft glaucous ring that breathes around the one
+ * button to press. Static for people who ask for reduced motion.
+ */
+@keyframes tour-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(80 125 188 / 0.55);
+  }
+  60% {
+    box-shadow: 0 0 0 9px rgb(80 125 188 / 0);
+  }
+}
+.tour-pulse {
+  animation: tour-pulse 1.8s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour-pulse {
+    animation: none;
+    box-shadow: 0 0 0 3px rgb(80 125 188 / 0.6);
+  }
+}

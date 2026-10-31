@@ -10,6 +10,7 @@ import { ClaimList, CLOSED, Lines, MonthCard, MoreLink, TotalRow } from "./parts
 import { ASSISTANT } from "@/lib/persona";
 import { ActivityList } from "@/app/components/activity-list";
 import { Assistant } from "@/app/components/assistant";
+import { getTour, nextHrefFor, pulses } from "@/lib/tour";
 
 export default async function LedgerPage({ searchParams }: PageProps<"/ledger">) {
   const user = await requireUser();
@@ -21,18 +22,18 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
     return <p className="text-stone-600">No leases yet. A landlord can add one from Properties.</p>;
   }
 
-  const [ledger, claims] = await Promise.all([getLedger(lease), listClaims(lease.id)]);
+  const [ledger, claims, tour] = await Promise.all([getLedger(lease), listClaims(lease.id), getTour(user)]);
   const role = roleIn(lease, user.id);
 
   const openClaims = claims.filter((c) => !CLOSED.includes(c.status));
   const recentMonths = ledger.periods.filter((p, i) => i === 0 || (p.invoice && p.invoice.status !== "paid"));
-  const awaitingPayment = ledger.periods.some((p) => p.invoice?.status === "sent");
+  const awaitingPayment = ledger.periods.find((p) => p.invoice?.status === "sent")?.invoice;
   const outstanding = ledger.periods.find((p) => p.invoice?.status === "sent" || p.invoice?.status === "draft");
 
   return (
     <div className="space-y-10">
-      {awaitingPayment && <PaymentWatcher />}
-      <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} />
+      {awaitingPayment && <PaymentWatcher invoiceId={awaitingPayment.id} />}
+      <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} pulse={pulses(tour, "aunt_claim")} />
       {leases.length > 1 && (
         <nav className="flex flex-wrap gap-2 text-sm">
           {leases.map((l) => (
@@ -65,14 +66,14 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
             {claims.length ? "No open claims." : "No claims yet."} Paid for a repair? Submit the receipt and photos here.
           </p>
         ) : (
-          <ClaimList claims={openClaims} lease={lease} />
+          <ClaimList claims={openClaims} lease={lease} pulseHref={nextHrefFor(tour)} />
         )}
         {claims.length > openClaims.length && (
           <MoreLink href={`/claims?lease=${lease.id}`} label={`Show all ${claims.length} claims (${claims.length - openClaims.length} closed)`} />
         )}
       </section>
 
-      <section className="rounded-2xl border border-dashed border-stone-300 bg-white p-5">
+      <section id="next-invoice" className="scroll-mt-24 rounded-2xl border border-dashed border-stone-300 bg-white p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold tracking-tight">Next invoice · {ledger.upcoming.label}</h2>
           <span className="text-sm text-stone-500">Preview — sent via PayPal before rent is due</span>
@@ -87,7 +88,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         {role === "landlord" && outstanding ? (
           <p className="mt-3 text-sm text-stone-500">You can send this after the {outstanding.label} invoice is paid.</p>
         ) : role === "landlord" ? (
-          <SendInvoiceButton leaseId={lease.id} />
+          <SendInvoiceButton leaseId={lease.id} pulse={pulses(tour, "send_invoice")} />
         ) : (
           <p className="mt-3 text-sm text-stone-500">{lease.landlord.name} sends this as a PayPal invoice before rent is due.</p>
         )}
@@ -95,12 +96,12 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
 
       {role === "tenant" && <SavedPayPal email={user.paypalVaultId ? (user.paypalVaultEmail ?? "your PayPal") : null} notice={typeof vault === "string" ? vault : null} />}
 
-      <section>
+      <section id="rent" className="scroll-mt-24">
         <h2 className="mb-3 text-lg font-semibold tracking-tight">Rent</h2>
         <div className="space-y-4">
           {/* Anything not paid yet, plus the latest month; older months are on the history page. */}
           {recentMonths.map((p) => (
-            <MonthCard key={p.period} p={p} lease={lease} role={role} canPaySaved={!!user.paypalVaultId} />
+            <MonthCard key={p.period} p={p} lease={lease} role={role} canPaySaved={!!user.paypalVaultId} pulse={pulses(tour, "pay")} />
           ))}
         </div>
         {ledger.periods.length > recentMonths.length && (

@@ -15,6 +15,7 @@ import { requireUser } from "@/lib/session";
 import { approve, changePayoutPreference } from "../actions";
 import { AddEvidenceForm } from "./add-evidence-form";
 import { PayBackButton, PayoutWatcher } from "./pay-back";
+import { getTour, pulses } from "@/lib/tour";
 import { EditAmount } from "./edit-amount";
 import { EditDate } from "./edit-date";
 import { ReviewAgainButton } from "./review-again";
@@ -33,10 +34,15 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
   const found = await getClaimForUser(id, user.id);
   if (!found) notFound();
   const { claim, lease, role } = found;
-  const [{ evidence, events, names }, [payout]] = await Promise.all([
+  const [{ evidence, events, names }, [payout], tour] = await Promise.all([
     getClaimDetail(claim.id),
     db().select().from(schema.payouts).where(eq(schema.payouts.claimId, claim.id)),
+    getTour(user),
   ]);
+  // The trial checklist points at this claim's Approve button when approving it is the next step.
+  const approvePulses = pulses(tour, "approve") && tour?.next?.href === `/claims/${claim.id}`;
+  // Next step happens on the ledger (send the invoice, pay it): light the way back there.
+  const backPulses = pulses(tour, "send_invoice") || pulses(tour, "pay");
 
   const submitter = names.get(claim.submittedBy) ?? "Unknown";
   const tenantPaid = claim.submittedBy !== lease.landlordId;
@@ -63,8 +69,11 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
 
   return (
     <div className="space-y-8">
-      <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} />
-      <Link href={`/ledger?lease=${lease.id}`} className="text-sm text-stone-600 hover:text-stone-900">
+      <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} pulse={pulses(tour, "aunt_claim")} />
+      <Link
+        href={`/ledger?lease=${lease.id}`}
+        className={`rounded-full text-sm text-stone-600 hover:text-stone-900 ${backPulses ? "tour-pulse px-2 py-1" : ""}`}
+      >
         ← {lease.propertyName} ledger
       </Link>
 
@@ -214,7 +223,10 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
         {claim.status === "awaiting_approval" && !myApproval && (
           <form action={approve} className="mt-4">
             <input type="hidden" name="claimId" value={claim.id} />
-            <SubmitButton pendingLabel="Approving…" className="rounded-full bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50">
+            <SubmitButton
+              pendingLabel="Approving…"
+              className={`rounded-full bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 ${approvePulses ? "tour-pulse" : ""}`}
+            >
               Approve this split
             </SubmitButton>
           </form>

@@ -70,12 +70,16 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
   return (
     <div className="space-y-8">
       <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} pulse={pulses(tour, "aunt_claim")} />
-      <Link
-        href={`/ledger?lease=${lease.id}`}
-        className={`rounded-full text-sm text-stone-600 hover:text-stone-900 ${backPulses ? "tour-pulse px-2 py-1" : ""}`}
-      >
-        ← {lease.propertyName} ledger
-      </Link>
+      {/* A block wrapper so the page's spacing applies (an inline link ignores it), and the same
+          padding glowing or not, so the tour's ring never shifts into the card below. */}
+      <div>
+        <Link
+          href={`/ledger?lease=${lease.id}`}
+          className={`-ml-2 inline-block rounded-full px-2 py-1 text-sm text-stone-600 hover:text-stone-900 ${backPulses ? "tour-pulse" : ""}`}
+        >
+          ← {lease.propertyName} ledger
+        </Link>
+      </div>
 
       <section className="rounded-2xl bg-white shadow-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">

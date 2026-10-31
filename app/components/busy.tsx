@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useFormStatus } from "react-dom";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
 
 // A full-screen "please wait" for actions that take a few seconds (creating a demo, calling PayPal),
-// so nobody presses the button again. It also blocks clicks while it's up.
+// so nobody presses the button again. It also blocks clicks while it's up. It's rendered into <body>:
+// inside the header or the tour bubble (their own layers) it would only cover and blur those.
 export function BusyOverlay({ show, message }: { show: boolean; message: string }) {
   if (!show) return null;
-  return (
+  return createPortal(
     <div role="status" aria-live="polite" className="fixed inset-0 z-50 grid place-items-center bg-stone-50/70 backdrop-blur-[2px]">
       <div className="flex items-center gap-3 rounded-2xl bg-white px-5 py-4 text-sm font-medium text-stone-800 shadow-xl ring-1 ring-sky-100">
         <span className="relative grid size-9 place-items-center">
@@ -17,7 +19,8 @@ export function BusyOverlay({ show, message }: { show: boolean; message: string 
         </span>
         {message}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

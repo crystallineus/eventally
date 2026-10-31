@@ -6,6 +6,7 @@ import { ASSISTANT } from "@/lib/persona";
 export function describeEvent(type: string, data: unknown): string {
   const text = describe(type, data);
   const via = (data as { via?: unknown } | null)?.via;
+  if (via === "Schedule") return `${text} (automatic)`;
   return typeof via === "string" && via.startsWith(ASSISTANT.name) && !text.includes(ASSISTANT.name) ? `${text} (via ${ASSISTANT.name})` : text;
 }
 
@@ -49,6 +50,20 @@ function describe(type: string, data: unknown): string {
       return `${by} sent a PayPal payment reminder for the ${d.period} invoice.`;
     case "invoice.record_failed":
       return "The saved-PayPal payment went through, but PayPal didn't mark the invoice paid; the ledger is correct.";
+    case "lease.auto_invoice_on":
+      return `${by} turned on sending each rent invoice automatically ${d.days} days before it's due.`;
+    case "lease.auto_invoice_off":
+      return `${by} turned off sending rent invoices automatically.`;
+    case "lease.autopay_on":
+      return `${by} turned on autopay with their saved PayPal, for invoices up to ${formatUsd(Number(d.limitCents ?? 0))}.`;
+    case "lease.autopay_off":
+      return `${by} turned off autopay.`;
+    case "invoice.autopay_skipped":
+      return `Autopay didn't pay the ${d.period} invoice: ${formatUsd(Number(d.totalCents ?? 0))} is over the ${formatUsd(Number(d.limitCents ?? 0))} limit, so it waits for the tenant.`;
+    case "invoice.autopay_failed":
+      return `Autopay couldn't pay the ${d.period} invoice (${d.error}). It's still waiting for payment.`;
+    case "invoice.auto_send_failed":
+      return `The next invoice couldn't be sent automatically (${d.error}).`;
     case "vault.saved":
       return `${by} saved a PayPal${d.email ? ` (${d.email})` : ""} for paying rent.`;
     case "vault.removed":

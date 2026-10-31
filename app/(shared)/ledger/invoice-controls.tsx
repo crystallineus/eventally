@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
-import { checkPayment, payWithSaved, refreshInvoice, sendNextInvoice, type InvoiceFormState } from "./actions";
+import { checkPayment, fastForward, payWithSaved, refreshInvoice, sendNextInvoice, type InvoiceFormState } from "./actions";
 
 export function SendInvoiceButton({ leaseId, pulse = false }: { leaseId: string; pulse?: boolean }) {
   const [state, action, pending] = useActionState<InvoiceFormState, FormData>(sendNextInvoice, { error: null });
@@ -41,6 +41,20 @@ export function PayWithSavedButton({ leaseId, invoiceId, label, pulse = false }:
         {pending ? "Paying…" : label}
       </button>
       {state.error && <span className="text-sm text-red-700">{state.error}</span>}
+    </form>
+  );
+}
+
+/** Demo only: jump to the next due date and run the daily schedule now. */
+export function FastForwardButton({ leaseId, dueLabel }: { leaseId: string; dueLabel: string }) {
+  const [state, action, pending] = useActionState<InvoiceFormState, FormData>(fastForward, { error: null });
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-3">
+      <input type="hidden" name="leaseId" value={leaseId} />
+      <button disabled={pending} className="rounded-full border border-sky-300 bg-white px-4 py-1.5 text-sm font-medium text-sky-800 hover:border-sky-500 disabled:opacity-50">
+        {pending ? "Running…" : `⏩ Jump to ${dueLabel} and run the schedule`}
+      </button>
+      {(state.error ?? state.note) && <span className={`text-sm ${state.error ? "text-red-700" : "text-sky-900"}`}>{state.error ?? state.note}</span>}
     </form>
   );
 }

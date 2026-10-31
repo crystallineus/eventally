@@ -39,6 +39,8 @@ export async function removeVault(user: User) {
   if (!user.paypalVaultId) return;
   await deleteVaultToken(user.paypalVaultId);
   await db().update(schema.users).set({ paypalVaultId: null, paypalVaultEmail: null }).where(eq(schema.users.id, user.id));
+  // Autopay needs the saved PayPal, so it stops with it.
+  await db().update(schema.leases).set({ autopay: false }).where(eq(schema.leases.tenantId, user.id));
   await logForLeases(user.id, "vault.removed", { by: user.name });
 }
 

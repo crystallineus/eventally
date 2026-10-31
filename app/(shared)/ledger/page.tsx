@@ -3,9 +3,12 @@ import { condenseReviews } from "@/app/components/event-label";
 import { listClaims } from "@/lib/claims";
 import { getLedger, getLeasesForUser, roleIn, type LeaseWithParties } from "@/lib/ledger";
 import { formatUsd } from "@/lib/money";
-import { formatLeaseTerm } from "@/lib/period";
+import { formatDate, formatLeaseTerm } from "@/lib/period";
 import { requireUser } from "@/lib/session";
-import { PaymentWatcher, SendInvoiceButton } from "./invoice-controls";
+import { FastForwardButton, PaymentWatcher, SendInvoiceButton } from "./invoice-controls";
+import { toggleAutoInvoice, toggleAutopay } from "./actions";
+import { SubmitButton } from "@/app/components/submit-button";
+import { AUTO_INVOICE_DAYS, describeLimit, nextDueDate } from "@/lib/schedule";
 import { ClaimList, CLOSED, Lines, MonthCard, MoreLink, TotalRow } from "./parts";
 import { ASSISTANT } from "@/lib/persona";
 import { ActivityList } from "@/app/components/activity-list";
@@ -92,9 +95,25 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         ) : (
           <p className="mt-3 text-sm text-stone-500">{lease.landlord.name} sends this as a PayPal invoice before rent is due.</p>
         )}
+        <AutoSendRow lease={lease} role={role} />
       </section>
 
-      {role === "tenant" && <SavedPayPal email={user.paypalVaultId ? (user.paypalVaultEmail ?? "your PayPal") : null} notice={typeof vault === "string" ? vault : null} />}
+      {user.demoId && (lease.autoInvoiceDays !== null || lease.autopay) && (
+        <section className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
+          <p className="mb-2 text-sm text-sky-900">
+            <span className="font-medium">Demo shortcut.</span> The schedule really runs once a day; skip ahead to the next due date and run it now.
+          </p>
+          <FastForwardButton leaseId={lease.id} dueLabel={formatDate(await nextDueDate(lease))} />
+        </section>
+      )}
+
+      {role === "tenant" && (
+        <SavedPayPal
+          email={user.paypalVaultId ? (user.paypalVaultEmail ?? "your PayPal") : null}
+          notice={typeof vault === "string" ? vault : null}
+          lease={lease}
+        />
+      )}
 
       <section id="rent" className="scroll-mt-24">
         <h2 className="mb-3 text-lg font-semibold tracking-tight">Rent</h2>
@@ -128,7 +147,27 @@ const VAULT_NOTICE: Record<string, string> = {
 };
 
 /** Tenant: save a PayPal once (PayPal Vault) so rent can be paid without logging in each month. */
-function SavedPayPal({ email, notice }: { email: string | null; notice: string | null }) {
+/** Landlord's switch for sending the next invoice automatically; the tenant just sees whether it's on. */
+function AutoSendRow({ lease, role }: { lease: LeaseWithParties; role: "landlord" | "tenant" }) {
+  const on = lease.autoInvoiceDays !== null;
+  if (role === "tenant") {
+    return on ? <p className="mt-2 text-sm text-stone-500">It goes out automatically {lease.autoInvoiceDays} days before rent is due.</p> : null;
+  }
+  return (
+    <form action={toggleAutoInvoice} className="mt-4 flex flex-wrap items-center gap-3 border-t border-stone-100 pt-3 text-sm">
+      <input type="hidden" name="leaseId" value={lease.id} />
+      <input type="hidden" name="on" value={on ? "0" : "1"} />
+      <span className="text-stone-700">
+        {on ? `✓ Sent automatically ${lease.autoInvoiceDays} days before rent is due, with any approved repairs.` : `Send it automatically ${AUTO_INVOICE_DAYS} days before rent is due, every month.`}
+      </span>
+      <SubmitButton pendingLabel="Saving…" className={on ? "text-stone-500 underline hover:text-stone-800" : "rounded-full border border-stone-300 bg-white px-3 py-1 font-medium text-stone-800 hover:bg-stone-100"}>
+        {on ? "Turn off" : "Turn on"}
+      </SubmitButton>
+    </form>
+  );
+}
+
+function SavedPayPal({ email, notice, lease }: { email: string | null; notice: string | null; lease: LeaseWithParties }) {
   return (
     <section className="rounded-2xl bg-white shadow-card p-5">
       <h2 className="text-lg font-semibold tracking-tight">Saved PayPal for rent</h2>
@@ -149,6 +188,20 @@ function SavedPayPal({ email, notice }: { email: string | null; notice: string |
         )}
         {notice && VAULT_NOTICE[notice] && <span className="text-sm text-stone-500">{VAULT_NOTICE[notice]}</span>}
       </form>
+      {email && (
+        <form action={toggleAutopay} className="mt-4 flex flex-wrap items-center gap-3 border-t border-stone-100 pt-3 text-sm">
+          <input type="hidden" name="leaseId" value={lease.id} />
+          <input type="hidden" name="on" value={lease.autopay ? "0" : "1"} />
+          <span className="text-stone-700">
+            {lease.autopay
+              ? `✓ Autopay is on: invoices up to ${describeLimit(lease)} are paid on the due date. A bigger one waits for you.`
+              : `Autopay: pay each invoice on its due date with this PayPal (up to ${describeLimit(lease)}; a bigger one waits for you).`}
+          </span>
+          <SubmitButton pendingLabel="Saving…" className={lease.autopay ? "text-stone-500 underline hover:text-stone-800" : "rounded-full border border-stone-300 bg-white px-3 py-1 font-medium text-stone-800 hover:bg-stone-100"}>
+            {lease.autopay ? "Turn off" : "Turn on"}
+          </SubmitButton>
+        </form>
+      )}
     </section>
   );
 }

@@ -130,6 +130,24 @@ const ACTION_TOOLS: { tool: Anthropic.Beta.BetaTool; kind: Action["kind"]; roles
   { kind: "pay_back_now", roles: ["landlord"], tool: { name: "prepare_pay_back_now", description: "Landlord: prepare paying the tenant back now via PayPal Payouts on an approved claim.", input_schema: { type: "object", properties: claimRef, required: ["claim"] } } },
   { kind: "send_next_invoice", roles: ["landlord"], tool: { name: "prepare_send_invoice", description: "Landlord: prepare sending next month's rent invoice through PayPal.", input_schema: { type: "object", properties: {} } } },
   {
+    kind: "set_auto_invoice",
+    roles: ["landlord"],
+    tool: {
+      name: "prepare_auto_invoice",
+      description: "Landlord: prepare turning on (or off) sending each rent invoice automatically a few days before it's due.",
+      input_schema: { type: "object", properties: { on: { type: "boolean" } }, required: ["on"] },
+    },
+  },
+  {
+    kind: "set_autopay",
+    roles: ["tenant"],
+    tool: {
+      name: "prepare_autopay",
+      description: "Tenant: prepare turning on (or off) autopay, which pays each rent invoice with their saved PayPal on its due date, up to 150% of rent.",
+      input_schema: { type: "object", properties: { on: { type: "boolean" } }, required: ["on"] },
+    },
+  },
+  {
     kind: "set_notifications",
     roles: ["landlord", "tenant"],
     tool: {
@@ -179,6 +197,7 @@ Rules:
 - Doing things: your prepare_* tools only show a confirmation card. Nothing happens until ${names.me} presses its button, so never say it's done; say what the card will do and ask them to check it. When they ask you to do something, prepare the card right away instead of asking "shall I?": the card is how they confirm. Only one card shows at a time. Your messages starting with ✓ or ✗ were written by the app after the person pressed a card: ✓ means it really happened, ✗ means it failed. You can only act for ${names.me}, never for ${names.other}.
 - Submitting a claim: ask only for what happened and photos: the receipt, plus before/after if they have them (attached with the paperclip button).${role === "tenant" ? " Also ask whether they'd like to be paid back right away via PayPal or credited on the next rent invoice." : ""} Don't ask for the amount or dates: your review reads them from the receipt (if they mention them, pass them along). Ask for anything missing in one short message. After three rounds of asking, prepare the claim with what you have, as long as there's a receipt photo; your review will ask for anything still missing.
 - After a review, tell them what it found and offer the next step: approve the split, propose a different one, add evidence, or withdraw.
+- Automatic rent: sending each invoice ${lease.autoInvoiceDays !== null ? `automatically ${lease.autoInvoiceDays} days before it's due is on` : "automatically is off"}; autopay is ${lease.autopay ? "on" : "off"}. ${role === "landlord" ? (lease.autoInvoiceDays === null ? `After ${names.me} sends an invoice, you can offer once to send future ones automatically.` : "") : lease.autopay ? "" : `After ${names.me} pays an invoice with their saved PayPal, you can offer once to turn on autopay.`}
 - Notifications: ${names.me}'s bell is set to "${NOTIFY_LABEL[notify]}". After they submit a claim, approve, or propose a split, say they'll see it under the bell when ${names.other} responds${notify === "off" ? `; since their notifications are off, ask if they'd like "${NOTIFY_LABEL.important}" turned on` : ""}.${role === "tenant" ? `
 - Paying rent: ${savedPayPal ? `${names.me} saved their PayPal (${savedPayPal}) for rent, so you can prepare a Pay card when a rent invoice is waiting. When they ask what they owe, list the unpaid invoice and the approved claims on it, then ask if they'd like to pay it now.` : `${names.me} hasn't saved a PayPal for rent. They can pay with the invoice's Pay button, or press Save under "Saved PayPal for rent" on the [ledger](/ledger) once so you can pay for them next time.`}` : ""}
 - Link to pages only with a "link" from a tool result, written as [text](/path). Never make up a path.

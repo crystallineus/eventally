@@ -25,6 +25,7 @@ import { formatPeriod } from "@/lib/period";
 import { NOTIFY_LABEL, NOTIFY_LEVELS, setNotifyLevel, type NotifyLevel } from "@/lib/notifications";
 import type { User as SessionUser } from "@/lib/session";
 import type { EvidenceKind } from "@/lib/storage";
+import { AUTO_INVOICE_DAYS, describeLimit, setAutoInvoice, setAutopay } from "@/lib/schedule";
 import { payableInvoice, payInvoiceWithVault } from "@/lib/vault";
 import { runVia } from "@/lib/via";
 
@@ -52,7 +53,9 @@ export type Action =
   | { kind: "send_next_invoice" }
   | { kind: "send_reminder"; invoiceId: string; note: string }
   | { kind: "pay_invoice"; invoiceId: string }
-  | { kind: "set_notifications"; level: NotifyLevel };
+  | { kind: "set_notifications"; level: NotifyLevel }
+  | { kind: "set_auto_invoice"; on: boolean }
+  | { kind: "set_autopay"; on: boolean };
 
 /** What the confirmation card shows. `needsPhotos` asks the chat to send the photos attached in it. */
 export type Pending = { action: Action; title: string; lines: string[]; confirmLabel: string; needsPhotos?: boolean };
@@ -119,6 +122,38 @@ export async function prepareAction(
       title: `Send the ${plan.label} rent invoice through PayPal?`,
       lines: [...plan.invoice.lines.map((l) => `${l.name}: ${formatUsd(l.amountCents)}`), `Total: ${formatUsd(plan.invoice.totalCents)}`],
       confirmLabel: "Send invoice",
+    };
+  }
+
+  if (kind === "set_auto_invoice") {
+    if (role !== "landlord") return { error: "Only the landlord decides how rent invoices are sent." };
+    const on = input.on !== false;
+    if ((lease.autoInvoiceDays !== null) === on) return { error: `Auto-send is already ${on ? "on" : "off"}.` };
+    return {
+      action: { kind, on },
+      title: on ? `Send each rent invoice automatically ${AUTO_INVOICE_DAYS} days before it's due?` : "Stop sending rent invoices automatically?",
+      lines: on
+        ? ["Approved repairs are added as usual.", "It only goes out once the last invoice is paid.", "Turn it off any time on the ledger."]
+        : ["You'll send each invoice yourself again."],
+      confirmLabel: on ? "Turn on" : "Turn off",
+    };
+  }
+
+  if (kind === "set_autopay") {
+    if (role !== "tenant") return { error: "Only the tenant can turn autopay on or off." };
+    const on = input.on !== false;
+    if (lease.autopay === on) return { error: `Autopay is already ${on ? "on" : "off"}.` };
+    if (on) {
+      const [me] = await db().select().from(schema.users).where(eq(schema.users.id, userId));
+      if (!me?.paypalVaultId) return { error: `They need to save a PayPal first: Save under "Saved PayPal for rent" on the [ledger](/ledger).` };
+    }
+    return {
+      action: { kind, on },
+      title: on ? "Pay each rent invoice automatically on its due date?" : "Turn off autopay?",
+      lines: on
+        ? [`Paid from your saved PayPal, up to ${describeLimit(lease)} (150% of rent).`, "A bigger invoice waits for you instead.", "Turn it off any time on the ledger."]
+        : ["You'll pay each invoice yourself again."],
+      confirmLabel: on ? "Turn on autopay" : "Turn off",
     };
   }
 
@@ -327,6 +362,12 @@ export async function performAction(
       case "send_reminder":
         await sendReminder(user, lease, action.invoiceId, action.note);
         return { message: "PayPal sent the reminder." };
+      case "set_auto_invoice":
+        await setAutoInvoice(user, lease.id, action.on);
+        return { message: action.on ? `Rent invoices will go out automatically ${AUTO_INVOICE_DAYS} days before they're due.` : "Auto-send is off." };
+      case "set_autopay":
+        await setAutopay(user, lease.id, action.on);
+        return { message: action.on ? "Autopay is on." : "Autopay is off." };
       case "set_notifications":
         await setNotifyLevel(user, action.level);
         return { message: `Notifications: ${NOTIFY_LABEL[action.level].toLowerCase()}.` };

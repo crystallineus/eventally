@@ -84,6 +84,10 @@ export const leases = pgTable(
     endDate: date("end_date"),
     /** Repair clause pasted from the lease; the agent cites it when proposing a split. */
     repairClause: text("repair_clause").notNull(),
+    /** Landlord's choice: the daily schedule sends the next invoice this many days before it's due. Null: off. */
+    autoInvoiceDays: integer("auto_invoice_days"),
+    /** Tenant's choice: the daily schedule pays a sent invoice with their saved PayPal on the due date. */
+    autopay: boolean("autopay").notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [

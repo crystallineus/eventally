@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/session";
 import { FastForwardButton, PaymentWatcher, SendInvoiceButton } from "./invoice-controls";
 import { toggleAutoInvoice, toggleAutopay } from "./actions";
 import { SubmitButton } from "@/app/components/submit-button";
+import { PostForm } from "@/app/components/busy";
 import { AUTO_INVOICE_DAYS, describeLimit, nextDueDate } from "@/lib/schedule";
 import { ClaimList, CLOSED, Lines, MonthCard, MoreLink, TotalRow } from "./parts";
 import { ASSISTANT } from "@/lib/persona";
@@ -180,14 +181,18 @@ function SavedPayPal({ email, notice, lease }: { email: string | null; notice: s
           Save your PayPal once, and paying each month&apos;s invoice becomes one press of Confirm, here or in a chat with {ASSISTANT.name}. You approve it on PayPal and can remove it any time.
         </p>
       )}
-      <form method="post" action={email ? "/api/vault/remove" : "/api/vault/start"} className="mt-3 flex flex-wrap items-center gap-3">
+      <PostForm
+        action={email ? "/api/vault/remove" : "/api/vault/start"}
+        message={email ? "Removing your saved PayPal…" : "Opening PayPal…"}
+        className="mt-3 flex flex-wrap items-center gap-3"
+      >
         {email ? (
           <button className="text-sm text-stone-600 underline hover:text-stone-900">Remove saved PayPal</button>
         ) : (
           <button className="rounded-full bg-[#ffc439] px-4 py-2 text-sm font-semibold text-[#003087] hover:bg-[#f2ba36]">Save</button>
         )}
         {notice && VAULT_NOTICE[notice] && <span className="text-sm text-stone-500">{VAULT_NOTICE[notice]}</span>}
-      </form>
+      </PostForm>
       {email && (
         <form action={toggleAutopay} className="mt-4 flex flex-wrap items-center gap-3 border-t border-stone-100 pt-3 text-sm">
           <input type="hidden" name="leaseId" value={lease.id} />

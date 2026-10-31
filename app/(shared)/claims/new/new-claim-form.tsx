@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { submitClaim, type FormState } from "../actions";
 import { withResizedImages } from "@/app/components/resize-images";
+import { BusyOverlay } from "@/app/components/busy";
 import { loadSamplePhotos, SAMPLE_CLAIM } from "@/app/components/sample-photos";
 
 const input = "mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:border-stone-900 focus:outline-none";
@@ -128,6 +129,7 @@ export function NewClaimForm({ leases, defaultLeaseId, today }: { leases: LeaseO
       <button disabled={busy} className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700 disabled:opacity-50">
         {busy ? "Uploading…" : "Submit"}
       </button>
+      <BusyOverlay show={busy} message="Uploading your claim and photos…" />
     </form>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PostForm } from "@/app/components/busy";
 import { ASSISTANT } from "@/lib/persona";
 
 // Site footer: brand on the left, links in the middle, copyright on the right (stacks on mobile).
@@ -14,9 +15,9 @@ export function Footer() {
             About {ASSISTANT.name}
           </Link>
           <span className="text-xs text-stone-400">Demo · PayPal sandbox · fictional data</span>
-          <form action="/api/demo/reset" method="post">
+          <PostForm action="/api/demo/reset" message="Resetting your demo…">
             <button className="text-xs text-sky-700 underline hover:text-sky-900">Reset my demo</button>
-          </form>
+          </PostForm>
         </nav>
         <p className="text-xs text-stone-500">© 2026 EvenTally</p>
       </div>

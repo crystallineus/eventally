@@ -6,6 +6,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { hideTour, switchUser } from "@/app/actions";
 import { TRY_SAMPLE_EVENT } from "@/app/components/assistant";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
+import { FormBusy } from "@/app/components/busy";
 import { ASSISTANT } from "@/lib/persona";
 
 export type BubbleAction = { kind: "switch"; userId: string; name: string; next: string } | { kind: "go"; href: string } | { kind: "aunt" };
@@ -125,6 +126,7 @@ function Action({ action, pathname }: { action: BubbleAction | null; pathname: s
         <input type="hidden" name="userId" value={action.userId} />
         <input type="hidden" name="next" value={action.next} />
         <button className={button}>Switch to {action.name} →</button>
+        <FormBusy message={`Switching to ${action.name}…`} />
       </form>
     );
   }

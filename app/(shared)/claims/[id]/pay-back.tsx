@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
 import { payBackNow, refreshPayout, type FormState } from "../actions";
+import { BusyOverlay } from "@/app/components/busy";
 
 export function PayBackButton({ claimId, amount, tenantName }: { claimId: string; amount: string; tenantName: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(payBackNow, { error: null });
@@ -21,6 +22,7 @@ export function PayBackButton({ claimId, amount, tenantName }: { claimId: string
         {pending ? "Sending…" : "Pay back now"}
       </button>
       {state.error && <p role="alert" className="w-full text-sm text-red-700">{state.error}</p>}
+      <BusyOverlay show={pending} message="Sending the money through PayPal…" />
     </form>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
+import { BusyOverlay } from "@/app/components/busy";
 import { checkPayment, fastForward, payWithSaved, refreshInvoice, sendNextInvoice, type InvoiceFormState } from "./actions";
 
 export function SendInvoiceButton({ leaseId, pulse = false }: { leaseId: string; pulse?: boolean }) {
@@ -14,6 +15,7 @@ export function SendInvoiceButton({ leaseId, pulse = false }: { leaseId: string;
       </button>
       <span className="text-sm text-stone-500">Approved claims are added; the tenant gets a PayPal invoice by email.</span>
       {state.error && <p role="alert" className="w-full text-sm text-red-700">{state.error}</p>}
+      <BusyOverlay show={pending} message="Sending the invoice through PayPal…" />
     </form>
   );
 }
@@ -41,6 +43,7 @@ export function PayWithSavedButton({ leaseId, invoiceId, label, pulse = false }:
         {pending ? "Paying…" : label}
       </button>
       {state.error && <span className="text-sm text-red-700">{state.error}</span>}
+      <BusyOverlay show={pending} message="Paying with your saved PayPal…" />
     </form>
   );
 }
@@ -55,6 +58,7 @@ export function FastForwardButton({ leaseId, dueLabel }: { leaseId: string; dueL
         {pending ? "Running…" : `⏩ Jump to ${dueLabel} and run the schedule`}
       </button>
       {(state.error ?? state.note) && <span className={`text-sm ${state.error ? "text-red-700" : "text-sky-900"}`}>{state.error ?? state.note}</span>}
+      <BusyOverlay show={pending} message="Running the schedule…" />
     </form>
   );
 }

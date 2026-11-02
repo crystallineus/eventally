@@ -246,7 +246,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
               pendingLabel="Approving…"
               className={`rounded-full bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 ${approvePulses ? "tour-pulse" : ""}`}
             >
-              {sendTo ? `Approve and send to ${sendTo}` : "Approve this split"}
+              {sendTo ? `Approve and send to ${sendTo}` : "Approve"}
             </SubmitButton>
           </form>
         )}

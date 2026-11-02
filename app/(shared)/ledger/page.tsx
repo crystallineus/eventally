@@ -78,7 +78,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
           <ClaimList claims={openClaims} lease={lease} pulseHref={nextHrefFor(tour)} />
         )}
         {claims.length > openClaims.length && (
-          <MoreLink href={`/claims?lease=${lease.id}`} label={`Show all ${claims.length} claims (${claims.length - openClaims.length} closed)`} />
+          <MoreLink href={`/claims?lease=${lease.id}`} label={`Show all (${claims.length})`} />
         )}
       </section>
 
@@ -130,7 +130,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
           ))}
         </div>
         {ledger.periods.length > recentMonths.length && (
-          <MoreLink href={`/ledger/history?lease=${lease.id}`} label={`Show all ${ledger.periods.length} months`} />
+          <MoreLink href={`/ledger/history?lease=${lease.id}`} label={`Show all (${ledger.periods.length})`} />
         )}
       </section>
 

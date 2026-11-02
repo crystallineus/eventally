@@ -16,7 +16,7 @@ export const CLOSED: Claim["status"][] = ["settled", "withdrawn", "paid_out"];
 export function MoreLink({ href, label }: { href: string; label: string }) {
   return (
     <Link href={href} className="mt-3 inline-block text-sm font-medium text-sky-700 hover:text-sky-900">
-      {label} →
+      {label}
     </Link>
   );
 }

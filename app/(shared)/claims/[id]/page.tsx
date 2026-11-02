@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import Link from "next/link";
+import { BackToLedger } from "@/app/components/back-to-ledger";
 import { formatDateTime, todayInAppZone } from "@/lib/time";
 import { notFound } from "next/navigation";
 import { ActivityList } from "@/app/components/activity-list";
@@ -84,12 +84,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
       {/* A block wrapper so the page's spacing applies (an inline link ignores it), and the same
           padding glowing or not, so the tour's ring never shifts into the card below. */}
       <div>
-        <Link
-          href={`/ledger?lease=${lease.id}`}
-          className={`-ml-2 inline-block rounded-full px-2 py-1 text-sm text-stone-600 hover:text-stone-900 ${backPulses ? "tour-pulse" : ""}`}
-        >
-          ← {lease.propertyName} ledger
-        </Link>
+        <BackToLedger leaseId={lease.id} pulse={backPulses} />
       </div>
 
       {draft && (

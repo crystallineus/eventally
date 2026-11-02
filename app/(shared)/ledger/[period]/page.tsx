@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackToLedger } from "@/app/components/back-to-ledger";
 import { notFound } from "next/navigation";
 import { Assistant } from "@/app/components/assistant";
 import { getLedger, getLeasesForUser, roleIn } from "@/lib/ledger";
@@ -22,10 +23,8 @@ export default async function MonthPage({ params, searchParams }: PageProps<"/le
     <div className="space-y-6">
       <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} />
       <div>
-        <Link href={`/ledger?lease=${lease.id}`} className="text-sm text-stone-600 hover:text-stone-900">
-          ← {lease.propertyName}
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">{month.label} rent</h1>
+        <BackToLedger leaseId={lease.id} />
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight">{month.label} rent</h1>
       </div>
       <MonthCard p={month} lease={lease} role={role} canPaySaved={!!user.paypalVaultId} link={false} />
       {claimIds.length > 0 && (

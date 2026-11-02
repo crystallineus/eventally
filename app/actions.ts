@@ -58,6 +58,7 @@ export type LeaseFormState = { error: string | null; values?: Record<string, str
 
 export async function createLease(_prev: LeaseFormState, formData: FormData): Promise<LeaseFormState> {
   const landlord = await requireUser();
+  if (landlord.demoId) return { error: "Adding a lease isn't available in the demo." };
   const values = Object.fromEntries([...formData.entries()].map(([k, v]) => [k, String(v)]));
   const parsed = LeaseForm.safeParse(values);
   if (!parsed.success) return { error: parsed.error.issues[0].message, values };

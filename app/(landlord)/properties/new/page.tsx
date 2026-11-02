@@ -1,6 +1,10 @@
+import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/session";
 import { NewLeaseForm } from "./new-lease-form";
 
-export default function NewLeasePage() {
+export default async function NewLeasePage() {
+  // Not in the demo: each visitor's demo has its one ready-made lease (Maple Street).
+  if ((await requireUser()).demoId) redirect("/properties");
   return (
     <div className="max-w-2xl space-y-6">
       <div>

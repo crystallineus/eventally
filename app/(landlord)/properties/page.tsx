@@ -12,9 +12,12 @@ export default async function PropertiesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Properties</h1>
-        <Link href="/properties/new" className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
-          New lease
-        </Link>
+        {/* The demo comes with one ready-made lease; adding more is for the full product. */}
+        {!user.demoId && (
+          <Link href="/properties/new" className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
+            New lease
+          </Link>
+        )}
       </div>
       <ul className="grid gap-4 sm:grid-cols-2">
         {leases.map((l) => (

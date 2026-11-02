@@ -58,7 +58,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         </nav>
       )}
 
-      <LeaseSummary lease={lease} role={role} balanceCents={ledger.balanceCents} />
+      <LeaseSummary lease={lease} balanceCents={ledger.balanceCents} />
 
       <section>
         <div className="mb-3 flex items-center justify-between">
@@ -216,12 +216,11 @@ function SavedPayPal({ email, notice, lease }: { email: string | null; notice: s
   );
 }
 
-function LeaseSummary({ lease, role, balanceCents }: { lease: LeaseWithParties; role: "landlord" | "tenant"; balanceCents: number }) {
+function LeaseSummary({ lease, balanceCents }: { lease: LeaseWithParties; balanceCents: number }) {
   const landlord = lease.landlord.businessName ? `${lease.landlord.name} · ${lease.landlord.businessName}` : lease.landlord.name;
   return (
     <section className="grid gap-4 rounded-2xl bg-white shadow-card p-5 sm:grid-cols-[1fr_auto]">
       <div>
-        <p className="text-sm text-stone-500">You are the {role}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{lease.propertyName}</h1>
         <p className="text-stone-600">{lease.address}</p>
         <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">

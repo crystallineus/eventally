@@ -49,7 +49,12 @@ export function UnreviewedChanges({
 
   return (
     <section className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-sm">
-      <h2 className="font-semibold text-amber-950">⚠ Changes {ASSISTANT.name} hasn&apos;t reviewed</h2>
+      <h2 className="flex items-center gap-2 font-semibold text-amber-950">
+        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-amber-100 text-xs font-bold text-amber-800" aria-hidden>
+          !
+        </span>
+        Changes {ASSISTANT.name} hasn&apos;t reviewed
+      </h2>
       <p className="mt-0.5 text-amber-900">Her review above is based on the claim as of {formatDateTime(reviewedAt)}.</p>
 
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">

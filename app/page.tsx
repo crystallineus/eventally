@@ -82,5 +82,5 @@ function Initials({ text, className }: { text: string; className: string }) {
 }
 
 function StartButton() {
-  return <button className="rounded-full bg-sky-600 px-6 py-2.5 font-medium text-white shadow-card hover:bg-sky-700">Start as Tom →</button>;
+  return <button className="rounded-full bg-sky-600 px-6 py-2.5 font-medium text-white shadow-card hover:bg-sky-700">Start as Tom</button>;
 }

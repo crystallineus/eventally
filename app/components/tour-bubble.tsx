@@ -141,7 +141,7 @@ function Action({ action, pathname }: { action: BubbleAction | null; pathname: s
           else router.push("/ledger#aunt-claim");
         }}
       >
-        Open the chat →
+        Open the chat
       </button>
     );
   }

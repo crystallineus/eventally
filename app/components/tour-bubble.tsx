@@ -54,7 +54,8 @@ export function TourBubble({
   const setMin = writeMinimized;
   useScrollToGlow(step ? `${pathname}#${step.index}` : null);
 
-  const position = "fixed right-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] z-20";
+  // While there's a step to do, the tour itself glows too, like the button it points at.
+  const position = `fixed right-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] z-20 ${step ? "tour-frame" : ""}`;
   if (minimized) {
     return (
       <button onClick={() => setMin(false)} className={`${position} flex items-center gap-2 rounded-full bg-white py-1 pr-3 pl-1 text-xs font-medium text-sky-800 shadow-md ring-1 ring-sky-200`}>

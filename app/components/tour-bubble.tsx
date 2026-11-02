@@ -125,7 +125,7 @@ function Action({ action, pathname }: { action: BubbleAction | null; pathname: s
       <form action={switchUser}>
         <input type="hidden" name="userId" value={action.userId} />
         <input type="hidden" name="next" value={action.next} />
-        <button className={button}>Switch to {action.name} →</button>
+        <button className={button}>Switch to {action.name}</button>
         <FormBusy message={`Switching to ${action.name}…`} />
       </form>
     );

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { condenseReviews } from "@/app/components/event-label";
-import { listClaims } from "@/lib/claims";
+import { claimVisibility, listClaims } from "@/lib/claims";
 import { getLedger, getLeasesForUser, roleIn, type LeaseWithParties } from "@/lib/ledger";
 import { formatUsd } from "@/lib/money";
 import { formatDate, formatLeaseTerm } from "@/lib/period";
@@ -26,7 +26,12 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
     return <p className="text-stone-600">No leases yet. A landlord can add one from Properties.</p>;
   }
 
-  const [ledger, claims, tour] = await Promise.all([getLedger(lease), listClaims(lease.id), getTour(user)]);
+  const [ledger, claims, tour, { hidden: hiddenClaims }] = await Promise.all([
+    getLedger(lease),
+    listClaims(lease.id, user.id),
+    getTour(user),
+    claimVisibility([lease.id], user.id),
+  ]);
   const role = roleIn(lease, user.id);
 
   const openClaims = claims.filter((c) => !CLOSED.includes(c.status));
@@ -53,7 +58,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         </nav>
       )}
 
-      <LeaseSummary lease={lease} role={role} balanceCents={ledger.balanceCents} />
+      <LeaseSummary lease={lease} balanceCents={ledger.balanceCents} />
 
       <section>
         <div className="mb-3 flex items-center justify-between">
@@ -73,7 +78,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
           <ClaimList claims={openClaims} lease={lease} pulseHref={nextHrefFor(tour)} />
         )}
         {claims.length > openClaims.length && (
-          <MoreLink href={`/claims?lease=${lease.id}`} label={`Show all ${claims.length} claims (${claims.length - openClaims.length} closed)`} />
+          <MoreLink href={`/claims?lease=${lease.id}`} label={`Show all (${claims.length})`} />
         )}
       </section>
 
@@ -125,7 +130,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
           ))}
         </div>
         {ledger.periods.length > recentMonths.length && (
-          <MoreLink href={`/ledger/history?lease=${lease.id}`} label={`Show all ${ledger.periods.length} months`} />
+          <MoreLink href={`/ledger/history?lease=${lease.id}`} label={`Show all (${ledger.periods.length})`} />
         )}
       </section>
 
@@ -134,7 +139,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         <p className="mb-3 text-sm text-stone-500">
           Every step — agent checks and reasoning, approvals, payments — is recorded here and visible to both of you.
         </p>
-        <ActivityList events={condenseReviews(ledger.events)} />
+        <ActivityList events={condenseReviews(ledger.events.filter((e) => !(e.claimId && hiddenClaims.has(e.claimId))))} />
       </section>
     </div>
   );
@@ -211,12 +216,11 @@ function SavedPayPal({ email, notice, lease }: { email: string | null; notice: s
   );
 }
 
-function LeaseSummary({ lease, role, balanceCents }: { lease: LeaseWithParties; role: "landlord" | "tenant"; balanceCents: number }) {
+function LeaseSummary({ lease, balanceCents }: { lease: LeaseWithParties; balanceCents: number }) {
   const landlord = lease.landlord.businessName ? `${lease.landlord.name} · ${lease.landlord.businessName}` : lease.landlord.name;
   return (
     <section className="grid gap-4 rounded-2xl bg-white shadow-card p-5 sm:grid-cols-[1fr_auto]">
       <div>
-        <p className="text-sm text-stone-500">You are the {role}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{lease.propertyName}</h1>
         <p className="text-stone-600">{lease.address}</p>
         <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">

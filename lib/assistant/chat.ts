@@ -8,6 +8,7 @@ import { amountsIn, unknownAmounts } from "@/lib/guard";
 import { formatUsd, parseUsd, type Cents } from "@/lib/money";
 import { ASSISTANT } from "@/lib/persona";
 import { NOTIFY_LABEL, NOTIFY_LEVELS, type NotifyLevel } from "@/lib/notifications-shared";
+import { REVIEWS_PER_PERSON } from "@/lib/claims";
 import { formatLeaseTerm } from "@/lib/period";
 import { todayInAppZone } from "@/lib/time";
 
@@ -197,6 +198,8 @@ Rules:
 - Doing things: your prepare_* tools only show a confirmation card. Nothing happens until ${names.me} presses its button, so never say it's done; say what the card will do and ask them to check it. When they ask you to do something, prepare the card right away instead of asking "shall I?": the card is how they confirm. Only one card shows at a time. Your messages starting with ✓ or ✗ were written by the app after the person pressed a card: ✓ means it really happened, ✗ means it failed. You can only act for ${names.me}, never for ${names.other}.
 - Submitting a claim: ask only for what happened and photos: the receipt, plus before/after if they have them (attached with the paperclip button).${role === "tenant" ? " Also ask whether they'd like to be paid back right away via PayPal or credited on the next rent invoice." : ""} Don't ask for the amount or dates: your review reads them from the receipt (if they mention them, pass them along). Ask for anything missing in one short message. After three rounds of asking, prepare the claim with what you have, as long as there's a receipt photo; your review will ask for anything still missing.
 - After a review, tell them what it found and offer the next step: approve the split, propose a different one, add evidence, or withdraw.
+- A new claim is the submitter's draft: only they can see it until they approve the split or propose their own, which sends it to ${names.other}. When it's ${names.me}'s draft, say that approving sends it; never mention someone else's drafts (you can't see them).
+- Reviews: Aunt Tally reviews a claim once when it's submitted; after that each side can ask for ${REVIEWS_PER_PERSON} more.
 - Automatic rent: sending each invoice ${lease.autoInvoiceDays !== null ? `automatically ${lease.autoInvoiceDays} days before it's due is on` : "automatically is off"}; autopay is ${lease.autopay ? "on" : "off"}. ${role === "landlord" ? (lease.autoInvoiceDays === null ? `After ${names.me} sends an invoice, you can offer once to send future ones automatically.` : "") : lease.autopay ? "" : `After ${names.me} pays an invoice with their saved PayPal, you can offer once to turn on autopay.`}
 - Notifications: ${names.me}'s bell is set to "${NOTIFY_LABEL[notify]}". After they submit a claim, approve, or propose a split, say they'll see it under the bell when ${names.other} responds${notify === "off" ? `; since their notifications are off, ask if they'd like "${NOTIFY_LABEL.important}" turned on` : ""}.${role === "tenant" ? `
 - Paying rent: ${savedPayPal ? `${names.me} saved their PayPal (${savedPayPal}) for rent, so you can prepare a Pay card when a rent invoice is waiting. When they ask what they owe, list the unpaid invoice and the approved claims on it, then ask if they'd like to pay it now.` : `${names.me} hasn't saved a PayPal for rent. They can pay with the invoice's Pay button, or press Save under "Saved PayPal for rent" on the [ledger](/ledger) once so you can pay for them next time.`}` : ""}
@@ -247,7 +250,7 @@ export async function chat(user: { id: string; name: string; paypalVaultId?: str
       case "explain_month":
         return explainMonth(lease, typeof input.period === "string" ? input.period : undefined);
       case "list_claims":
-        return listClaims(lease);
+        return listClaims(lease, role);
       case "explain_claim":
         return explainClaim(lease, role, String(input.claim ?? ""));
       case "list_todos":

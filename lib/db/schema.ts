@@ -128,6 +128,11 @@ export const claims = pgTable(
     tenantWantsPayout: boolean("tenant_wants_payout").notNull().default(false),
     /** Set while an agent review runs, so two reviews of the same claim can't overlap. */
     reviewStartedAt: timestamp("review_started_at", { withTimezone: true }),
+    /**
+     * When the submitter sent it to the other side (by approving or proposing a split). Until then
+     * it's a draft only the submitter sees; afterwards its whole history is visible to both.
+     */
+    sharedAt: timestamp("shared_at", { withTimezone: true }),
     landlordApprovedAt: timestamp("landlord_approved_at", { withTimezone: true }),
     tenantApprovedAt: timestamp("tenant_approved_at", { withTimezone: true }),
     createdAt: createdAt(),
@@ -156,6 +161,8 @@ export const evidence = pgTable(
     data: bytea("data"),
     demoPhoto: text("demo_photo").references(() => demoPhotos.name),
     sha256: text("sha256").notNull(),
+    /** Removed by its uploader: kept (hidden from the gallery and the review) so the change stays visible. */
+    removedAt: timestamp("removed_at", { withTimezone: true }),
     /** Receipt fields read by the agent (validated with zod before saving). */
     extracted: jsonb("extracted"),
     createdAt: createdAt(),

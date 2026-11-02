@@ -62,10 +62,11 @@ export async function getTour(user: User): Promise<Tour | null> {
     {
       key: "aunt_claim",
       role: "tenant",
-      title: "File a new claim by chatting with Aunt Tally",
-      hint: "Sample photos of a range hood repair are attached for you.",
+      title: `File a new claim with Aunt Tally and send it to ${tom}`,
+      hint: `Sample photos of a range hood repair are attached for you. It stays your draft until you approve it and send it to ${tom}.`,
       href: "/ledger#aunt-claim",
-      done: happened("claim.submitted", (e) => String((e.data as { via?: unknown }).via ?? "").startsWith("Aunt Tally")),
+      // Done once a claim Maya filed in the chat has been sent (her approval or proposal).
+      done: happened("claim.submitted", (e) => String((e.data as { via?: unknown }).via ?? "").startsWith("Aunt Tally")) && happened("claim.shared", (e) => e.actor === "tenant"),
     },
   ];
   return {

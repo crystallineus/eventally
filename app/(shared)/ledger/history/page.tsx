@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BackToLedger } from "@/app/components/back-to-ledger";
 import { notFound } from "next/navigation";
 import { Assistant } from "@/app/components/assistant";
 import { getLedger, getLeasesForUser, roleIn } from "@/lib/ledger";
@@ -19,10 +19,8 @@ export default async function RentHistoryPage({ searchParams }: PageProps<"/ledg
     <div className="space-y-6">
       <Assistant leaseId={lease.id} role={role} firstName={user.name.split(" ")[0]} />
       <div>
-        <Link href={`/ledger?lease=${lease.id}`} className="text-sm text-stone-600 hover:text-stone-900">
-          ← {lease.propertyName}
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Rent history</h1>
+        <BackToLedger leaseId={lease.id} />
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight">Rent history</h1>
       </div>
       {ledger.periods.length === 0 ? (
         <p className="text-stone-600">No rent months yet.</p>

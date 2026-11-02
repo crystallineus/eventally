@@ -1,10 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getClaimEvidence } from "@/lib/storage";
 import { todayInAppZone } from "@/lib/time";
-import { and, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { checkDates, checkMath, type CheckResult, type Receipt } from "@/lib/agent/checks";
-import { MAX_REVIEWS, reviewCount } from "@/lib/claims";
+import { isDraft, MAX_REVIEWS, reviewCount, reviewsLeft } from "@/lib/claims";
 import { db, schema } from "@/lib/db";
 import { unknownAmounts } from "@/lib/guard";
 import { formatUsd, parseUsd, splitByShare, type Cents } from "@/lib/money";
@@ -223,6 +223,8 @@ async function loadContext(claim: Claim, lease: Lease, reviewNumber: number) {
       .where(and(eq(schema.events.claimId, claim.id), eq(schema.events.type, "agent.request_more_evidence")))
       .orderBy(schema.events.createdAt),
   ]);
+  const left = await reviewsLeft(claim.id);
+  const lastReview = reviewNumber >= MAX_REVIEWS || left.landlord + left.tenant === 0;
   const name = (id: string | null) => people.find((p) => p.id === id)?.name ?? "Unknown";
   const submitterRole: Role = claim.submittedBy === lease.landlordId ? "landlord" : "tenant";
 
@@ -243,7 +245,12 @@ async function loadContext(claim: Claim, lease: Lease, reviewNumber: number) {
         `Lease term: ${formatLeaseTerm(lease.startDate, lease.endDate)}. Rent: ${formatUsd(lease.rentCents)}/month.`,
         `Repair clause from the lease:\n${lease.repairClause}`,
         "",
-        `This is review ${reviewNumber} of at most ${MAX_REVIEWS} for this claim.${reviewNumber === MAX_REVIEWS ? " It is the last one, so finish with propose_split." : ""}`,
+        `This is review ${reviewNumber} of this claim. After it, the landlord can ask for ${left.landlord} more and the tenant for ${left.tenant} more.${lastReview ? " Nobody can ask for another, so finish with propose_split." : ""}`,
+        ...(isDraft(claim)
+          ? [
+              `This claim is still a draft: only ${name(claim.submittedBy)} (the ${submitterRole}) can see it until they approve or propose a split. Ask only them for evidence; anything the other side should confirm goes in your rationale, which they'll read once it's sent.`,
+            ]
+          : []),
         ...earlierRequests.map(
           (r) => `Earlier you asked for more evidence: "${(r.data as { result?: { summary?: string } }).result?.summary ?? ""}" Anything uploaded after ${r.createdAt.toISOString()} is the response.`,
         ),
@@ -268,11 +275,17 @@ async function loadContext(claim: Claim, lease: Lease, reviewNumber: number) {
     /** Every amount the agent may mention: receipt fields, claim, reference ranges, shares. */
     knownAmounts: new Set<Cents>([claim.amountCents ?? 0, lease.rentCents]),
     alreadyAskedForEvidence: earlierRequests.length > 0,
-    lastReview: reviewNumber >= MAX_REVIEWS,
+    lastReview,
   };
 }
 
 // ---- tools ---------------------------------------------------------------------------------
+
+/**
+ * Compare only with claims both sides can see (or this one): someone's unsent draft must not show
+ * up, title and all, in a check the other side reads.
+ */
+const sentOrThis = (claimId: string) => or(isNotNull(schema.claims.sharedAt), eq(schema.claims.id, claimId));
 
 async function runTool(
   call: Anthropic.Beta.BetaToolUseBlock,
@@ -370,7 +383,7 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
           .select({ claimId: schema.evidence.claimId, title: schema.claims.title, id: schema.evidence.id })
           .from(schema.evidence)
           .innerJoin(schema.claims, eq(schema.evidence.claimId, schema.claims.id))
-          .where(and(eq(schema.claims.leaseId, ctx.lease.id), inArray(schema.evidence.sha256, hashes)))
+          .where(and(eq(schema.claims.leaseId, ctx.lease.id), inArray(schema.evidence.sha256, hashes), isNull(schema.evidence.removedAt), sentOrThis(ctx.claim.id)))
       : [];
     const ownIds = new Set(ctx.evidence.map((e) => e.id));
     const repeatedHere = hashes.length !== new Set(hashes).size;
@@ -383,7 +396,16 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
         .select({ title: schema.claims.title, extracted: schema.evidence.extracted })
         .from(schema.evidence)
         .innerJoin(schema.claims, eq(schema.evidence.claimId, schema.claims.id))
-        .where(and(eq(schema.claims.leaseId, ctx.lease.id), ne(schema.claims.id, ctx.claim.id), ne(schema.claims.status, "withdrawn"), eq(schema.evidence.kind, "receipt")));
+        .where(
+          and(
+            eq(schema.claims.leaseId, ctx.lease.id),
+            ne(schema.claims.id, ctx.claim.id),
+            ne(schema.claims.status, "withdrawn"),
+            eq(schema.evidence.kind, "receipt"),
+            isNull(schema.evidence.removedAt),
+            isNotNull(schema.claims.sharedAt),
+          ),
+        );
       for (const o of others) {
         const r = o.extracted as Receipt | null;
         if (r && r.totalCents === ctx.receipt.totalCents && r.date === ctx.receipt.date && r.merchant.trim().toLowerCase() === ctx.receipt.merchant.trim().toLowerCase()) {
@@ -415,6 +437,9 @@ const TOOL_HANDLERS: { [N in ToolName]: Handler<N> } = {
   },
 
   async request_more_evidence(input, ctx) {
+    if (isDraft(ctx.claim) && input.from !== ctx.submitterRole) {
+      throw new Error(`This claim is a draft only the ${ctx.submitterRole} can see. Ask them, or put what the other side should confirm in your rationale.`);
+    }
     // One request per claim: after that, the person approving the split is the manual check.
     if (ctx.lastReview) {
       throw new Error("This is your last review of this claim. Call propose_split and say in the rationale what the approving person should check themselves.");

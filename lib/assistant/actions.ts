@@ -5,11 +5,12 @@ import {
   addEvidence,
   approveClaim,
   createClaim,
+  isDraft,
   isOpen,
-  MAX_REVIEWS,
+  REVIEWS_PER_PERSON,
+  reviewsLeft,
   proposeSplit,
   requestReview,
-  reviewCount,
   setPayoutPreference,
   updateClaimAmount,
   updateIssueDate,
@@ -62,6 +63,12 @@ export type Pending = { action: Action; title: string; lines: string[]; confirmL
 
 export type Attachment = { kind: EvidenceKind; name: string };
 
+async function otherFirstName(lease: Lease, role: Role) {
+  const id = role === "landlord" ? lease.tenantId : lease.landlordId;
+  const [person] = id ? await db().select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, id)) : [];
+  return person?.name.split(" ")[0] ?? (role === "landlord" ? "the tenant" : "the landlord");
+}
+
 /** Check an action against the current state and describe it for the card, or explain why not. */
 export async function prepareAction(
   lease: Lease,
@@ -96,7 +103,8 @@ export async function prepareAction(
       title: `Submit the claim "${title}"?`,
       lines: [
         `What happened: ${description}`,
-        `Amount: ${cents == null ? "Read from the receipt" : formatUsd(cents)}`,
+        // Without an amount the review reads it from the receipt; the card only shows one they gave.
+        ...(cents == null ? [] : [`Amount: ${formatUsd(cents)}`]),
         ...(issueDate ? [`Reported: ${issueDate}`] : []),
         photoLine,
         ...(role === "tenant" ? [`Payback: ${wantsPayout ? "Right away via PayPal" : "Credit on your next rent"}`] : []),
@@ -201,11 +209,14 @@ export async function prepareAction(
   }
 
   // Everything else is about one claim.
-  const claim = await resolveClaim(lease, String(input.claim ?? ""));
+  const claim = await resolveClaim(lease, role, String(input.claim ?? ""));
   if (!claim) return { error: `No claim matching "${input.claim}" on this lease.` };
   const mine = claim.submittedBy === userId;
   const tenantFronted = claim.submittedBy !== lease.landlordId;
   const name = `"${claim.title}"`;
+  // On their own draft, approving or proposing also sends the claim to the other side.
+  const sendsIt = isDraft(claim) && mine;
+  const otherName = await otherFirstName(lease, role);
 
   switch (kind) {
     case "add_evidence":
@@ -219,9 +230,12 @@ export async function prepareAction(
       if (approved) return { error: "They already approved this split." };
       return {
         action: { kind, claimId: claim.id },
-        title: `Approve the split on ${name}?`,
-        lines: [`Landlord bears ${formatUsd(claim.landlordShareCents ?? 0)}, tenant bears ${formatUsd(claim.tenantShareCents ?? 0)}`],
-        confirmLabel: "Approve split",
+        title: sendsIt ? `Approve the split on ${name} and send it to ${otherName}?` : `Approve the split on ${name}?`,
+        lines: [
+          `Landlord bears ${formatUsd(claim.landlordShareCents ?? 0)}, tenant bears ${formatUsd(claim.tenantShareCents ?? 0)}`,
+          ...(sendsIt ? [`${otherName} sees the claim and its whole history from now on.`] : []),
+        ],
+        confirmLabel: sendsIt ? `Approve and send to ${otherName}` : "Approve split",
       };
     }
 
@@ -235,8 +249,8 @@ export async function prepareAction(
       return {
         action: { kind, claimId: claim.id, landlordPercent: percent, rationale },
         title: `Propose a new split on ${name}?`,
-        lines: [`Landlord bears ${formatUsd(landlord)}, tenant bears ${formatUsd(tenant)}`, `Why: ${rationale}`, "Proposing counts as your approval; the other side then approves or counters."],
-        confirmLabel: "Propose split",
+        lines: [`Landlord bears ${formatUsd(landlord)}, tenant bears ${formatUsd(tenant)}`, `Why: ${rationale}`, sendsIt ? `This sends it to ${otherName}, who then approves or counters.` : "Proposing counts as your approval; the other side then approves or counters."],
+        confirmLabel: sendsIt ? `Propose and send to ${otherName}` : "Propose split",
       };
     }
 
@@ -289,9 +303,9 @@ export async function prepareAction(
 
     case "request_review": {
       if (claim.status !== "needs_evidence" && claim.status !== "awaiting_approval") return { error: `${name} isn't waiting for a new review.` };
-      const left = MAX_REVIEWS - (await reviewCount(claim.id));
-      if (left <= 0) return { error: `${ASSISTANT.name} already reviewed ${name} ${MAX_REVIEWS} times. Either side can propose a split instead.` };
-      return { action: { kind, claimId: claim.id }, title: `Ask ${ASSISTANT.name} to review ${name} again?`, lines: [left === 1 ? "This is the last review." : `${left} reviews left.`], confirmLabel: "Start review" };
+      const left = (await reviewsLeft(claim.id))[role];
+      if (left <= 0) return { error: `They've used their ${REVIEWS_PER_PERSON} extra reviews on ${name}. They can propose a split instead.` };
+      return { action: { kind, claimId: claim.id }, title: `Ask ${ASSISTANT.name} to review ${name} again?`, lines: [left === 1 ? "This is your last extra review." : `You have ${left} extra reviews left.`], confirmLabel: "Review again" };
     }
 
     case "pay_back_now":

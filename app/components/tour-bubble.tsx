@@ -125,7 +125,7 @@ function Action({ action, pathname }: { action: BubbleAction | null; pathname: s
       <form action={switchUser}>
         <input type="hidden" name="userId" value={action.userId} />
         <input type="hidden" name="next" value={action.next} />
-        <button className={button}>Switch to {action.name} →</button>
+        <button className={button}>Switch to {action.name}</button>
         <FormBusy message={`Switching to ${action.name}…`} />
       </form>
     );
@@ -141,14 +141,14 @@ function Action({ action, pathname }: { action: BubbleAction | null; pathname: s
           else router.push("/ledger#aunt-claim");
         }}
       >
-        Open the chat →
+        Open the chat
       </button>
     );
   }
   if (pathname === action.href.split("#")[0]) return <span className="text-xs font-medium text-sky-800">Press the glowing button on this page.</span>;
   return (
     <Link href={action.href} className={button}>
-      Go →
+      Go
     </Link>
   );
 }

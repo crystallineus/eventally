@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import Link from "next/link";
+import { BackToLedger } from "@/app/components/back-to-ledger";
 import { formatDateTime, todayInAppZone } from "@/lib/time";
 import { notFound } from "next/navigation";
 import { ActivityList } from "@/app/components/activity-list";
@@ -8,7 +8,7 @@ import { ClaimStatus } from "@/app/components/claim-status";
 import { SubmitButton } from "@/app/components/submit-button";
 import { condenseReviews, describeEvent, groupSteps, proposalHistory, type Proposal } from "@/app/components/event-label";
 import { WhyTip } from "@/app/components/why-tip";
-import { getClaimDetail, getClaimForUser, isOpen, MAX_REVIEWS } from "@/lib/claims";
+import { getClaimDetail, getClaimForUser, isDraft, isOpen, REVIEWS_PER_PERSON, reviewsLeft as reviewsLeftFor } from "@/lib/claims";
 import { db, schema } from "@/lib/db";
 import { formatUsd, parseUsd } from "@/lib/money";
 import { requireUser } from "@/lib/session";
@@ -22,6 +22,7 @@ import { ReviewAgainButton } from "./review-again";
 import { EvidenceGallery } from "./evidence-gallery";
 import { ReviewRunner } from "./review-runner";
 import { SplitForm } from "./split-form";
+import { UnreviewedChanges } from "./unreviewed-changes";
 import { WithdrawButton } from "./withdraw-button";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
 import { ASSISTANT } from "@/lib/persona";
@@ -34,11 +35,20 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
   const found = await getClaimForUser(id, user.id);
   if (!found) notFound();
   const { claim, lease, role } = found;
-  const [{ evidence, events, names }, [payout], tour] = await Promise.all([
+  const [{ evidence: allEvidence, events, names }, [payout], tour, left] = await Promise.all([
     getClaimDetail(claim.id),
     db().select().from(schema.payouts).where(eq(schema.payouts.claimId, claim.id)),
     getTour(user),
+    reviewsLeftFor(claim.id),
   ]);
+  const evidence = allEvidence.filter((e) => !e.removedAt);
+  const draft = isDraft(claim);
+  const mine = claim.submittedBy === user.id;
+  const firstName = (id: string | null) => (names.get(id ?? "") ?? "").split(" ")[0];
+  const people = { landlord: firstName(lease.landlordId) || "The landlord", tenant: firstName(lease.tenantId) || "The tenant" };
+  const otherName = role === "landlord" ? people.tenant : people.landlord;
+  // On your own draft, approving or proposing also sends the claim to the other side.
+  const sendTo = draft && mine ? otherName : null;
   // The trial checklist points at this claim's Approve button when approving it is the next step.
   const approvePulses = pulses(tour, "approve") && tour?.next?.href === `/claims/${claim.id}`;
   // Next step happens on the ledger (send the invoice, pay it): light the way back there.
@@ -54,13 +64,14 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
   const review = lastStart === -1 ? [] : events.slice(0, lastStart).filter((e) => e.actor === "agent").reverse();
   const evidenceRequest = claim.status === "needs_evidence" ? review.findLast((e) => e.type === "agent.request_more_evidence") : undefined;
   const reviewsDone = events.filter((e) => e.type === "agent.review_started").length;
-  const reviewsLeft = Math.max(0, MAX_REVIEWS - reviewsDone);
+  const myReviewsLeft = left[role];
   // Changes made after the latest AI review finished: the review didn't see them.
   const lastReviewEnd = events.find((e) => e.type === "agent.review_finished")?.createdAt;
-  const changesSinceReview =
-    lastReviewEnd && claim.status !== "reviewing"
-      ? events.filter((e) => CHANGE_TYPES.has(e.type) && e.createdAt > lastReviewEnd).reverse()
-      : [];
+  const since = (at: Date | null | undefined) => !!lastReviewEnd && !!at && at > lastReviewEnd && claim.status !== "reviewing";
+  const changesSinceReview = events.filter((e) => CHANGE_TYPES.has(e.type) && since(e.createdAt)).reverse();
+  const photosAdded = allEvidence.filter((e) => since(e.createdAt) && !e.removedAt).map((e) => ({ id: e.id, kind: e.kind, uploadedBy: e.uploadedBy, at: e.createdAt }));
+  const photosRemoved = allEvidence.filter((e) => since(e.removedAt) && !since(e.createdAt)).map((e) => ({ id: e.id, kind: e.kind, uploadedBy: e.uploadedBy, at: e.removedAt! }));
+  const unreviewed = changesSinceReview.some((e) => e.type === "claim.amount_changed" || e.type === "claim.date_changed") || photosAdded.length > 0 || photosRemoved.length > 0;
   // The receipt total the AI last read, offered to the submitter as a one-click correction.
   const lastReceipt = events.find((e) => e.type === "agent.record_receipt");
   const receiptTotal = (lastReceipt?.data as { input?: { total?: string } } | undefined)?.input?.total;
@@ -73,13 +84,15 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
       {/* A block wrapper so the page's spacing applies (an inline link ignores it), and the same
           padding glowing or not, so the tour's ring never shifts into the card below. */}
       <div>
-        <Link
-          href={`/ledger?lease=${lease.id}`}
-          className={`-ml-2 inline-block rounded-full px-2 py-1 text-sm text-stone-600 hover:text-stone-900 ${backPulses ? "tour-pulse" : ""}`}
-        >
-          ← {lease.propertyName} ledger
-        </Link>
+        <BackToLedger leaseId={lease.id} pulse={backPulses} />
       </div>
+
+      {draft && (
+        <p className="rounded-2xl bg-stone-100 px-4 py-3 text-sm text-stone-700">
+          <span className="font-semibold text-stone-900">Draft · only you can see this.</span> {otherName} sees it, with its whole history, once you
+          approve the split or propose your own.
+        </p>
+      )}
 
       <section className="rounded-2xl bg-white shadow-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -94,7 +107,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
             )}
           </div>
           <div className="text-right">
-            <ClaimStatus status={claim.status} />
+            <ClaimStatus status={claim.status} draft={draft} />
             <p className="mt-1 text-2xl font-semibold tabular-nums">{claim.amountCents == null ? "—" : formatUsd(claim.amountCents)}</p>
             <p className="text-xs text-stone-500">paid by {submitter}</p>
             {open && claim.submittedBy === user.id && !claim.reviewStartedAt && (
@@ -105,31 +118,22 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
         <p className="mt-4 whitespace-pre-line text-stone-800">{claim.description}</p>
       </section>
 
-      <AiReview reviewing={claim.status === "reviewing"} claimId={claim.id} steps={review} reviewNumber={reviewsDone}>
-        {changesSinceReview.length > 0 && (
-          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-            <p className="font-medium">This review is out of date. Since it ran:</p>
-            <ul className="mt-1 list-disc pl-5">
-              {changesSinceReview.map((e) => (
-                <li key={e.id}>{describeEvent(e.type, e.data)}</li>
-              ))}
-            </ul>
-            {reviewsLeft > 0 ? (
-              claim.status === "awaiting_approval" && (
-                <>
-                  <p className="mt-2">Ask Aunt Tally to look again; the current proposal moves to the history.</p>
-                  <ReviewAgainButton claimId={claim.id} reviewsLeft={reviewsLeft} />
-                </>
-              )
-            ) : (
-              <p className="mt-2">
-                Aunt Tally has reviewed this claim {MAX_REVIEWS} times, which is the limit, so she won&apos;t check these changes. Before
-                approving, look at the new evidence yourself; photos added since the review are marked &ldquo;New&rdquo; below.
-              </p>
-            )}
-          </div>
-        )}
-      </AiReview>
+      <AiReview reviewing={claim.status === "reviewing"} claimId={claim.id} steps={review} reviewNumber={reviewsDone} />
+
+      {lastReviewEnd && unreviewed && (
+        <UnreviewedChanges
+          claimId={claim.id}
+          reviewedAt={lastReviewEnd}
+          changes={changesSinceReview}
+          added={photosAdded}
+          removed={photosRemoved}
+          names={names}
+          people={people}
+          left={left}
+          role={role}
+          canAskAgain={claim.status === "needs_evidence" || claim.status === "awaiting_approval"}
+        />
+      )}
 
       {claim.status === "needs_evidence" && (
         <section className="rounded-xl border border-amber-300 bg-amber-50 p-5">
@@ -140,18 +144,18 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
               : "Waiting for changes"}
           </h2>
           {evidenceRequest && <p className="mt-2 whitespace-pre-line text-amber-950">{describeEvent(evidenceRequest.type, evidenceRequest.data)}</p>}
-          {reviewsLeft > 0 ? (
+          {myReviewsLeft > 0 ? (
             <>
               <p className="mt-2 text-sm text-amber-800">
-                Make all your changes first (photos, amount, date), then press Review again. Can&apos;t provide something?
-                Either of you can propose a split under &ldquo;Who pays&rdquo; and the other side reviews it.
+                Make all your changes first (photos, amount, date), then press Review again. Can&apos;t provide something? Propose a split under
+                &ldquo;Who pays&rdquo;{sendTo ? `, which sends it to ${sendTo}` : " and the other side reviews it"}.
               </p>
-              <ReviewAgainButton claimId={claim.id} reviewsLeft={reviewsLeft} />
+              {!unreviewed && <ReviewAgainButton claimId={claim.id} reviewsLeft={myReviewsLeft} />}
             </>
           ) : (
             <p className="mt-2 text-sm text-amber-800">
-              Aunt Tally has reviewed this claim {MAX_REVIEWS} times, which is the limit. Propose a split under &ldquo;Who pays&rdquo;
-              and the other side reviews it.
+              You&apos;ve asked {ASSISTANT.name} to look again {REVIEWS_PER_PERSON} times, the most each side can. Propose a split under
+              &ldquo;Who pays&rdquo;{sendTo ? `, which sends it to ${sendTo}` : " and the other side reviews it"}.
             </p>
           )}
         </section>
@@ -163,8 +167,8 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           claimId={claim.id}
           photos={evidence.map((e) => ({
             removable: open && e.uploadedBy === user.id && !claim.reviewStartedAt,
-            // Only once Aunt Tally won't review again: then people need to look at these themselves.
-            isNew: reviewsLeft === 0 && !!lastReviewEnd && e.createdAt > lastReviewEnd,
+            // Changes since the review are listed in "Changes Aunt Tally hasn't reviewed" instead.
+            isNew: false,
             id: e.id,
             kind: e.kind,
             label: `${KIND_LABELS[e.kind]} · uploaded by ${names.get(e.uploadedBy) ?? "unknown"}`,
@@ -225,20 +229,26 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           </p>
         )}
         {claim.status === "awaiting_approval" && !myApproval && (
-          <form action={approve} className="mt-4">
+          <form action={approve} className="mt-4 space-y-3">
             <input type="hidden" name="claimId" value={claim.id} />
+            {unreviewed && (
+              <label className="flex items-start gap-2 text-sm text-amber-900">
+                <input type="checkbox" name="checkedChanges" required className="mt-0.5" />
+                I&apos;ve looked at the changes {ASSISTANT.name} hasn&apos;t reviewed.
+              </label>
+            )}
             <SubmitButton
               pendingLabel="Approving…"
               className={`rounded-full bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 ${approvePulses ? "tour-pulse" : ""}`}
             >
-              Approve this split
+              {sendTo ? `Approve and send to ${sendTo}` : "Approve"}
             </SubmitButton>
           </form>
         )}
         {claim.status === "awaiting_approval" && myApproval && (
           <p className="mt-4 text-sm text-stone-600">You approved. Waiting for the {role === "landlord" ? "tenant" : "landlord"}.</p>
         )}
-        {open && <SplitForm claimId={claim.id} hasProposal={claim.landlordShareCents != null} />}
+        {open && <SplitForm claimId={claim.id} hasProposal={claim.landlordShareCents != null} sendTo={sendTo} />}
         {/* Without a current split (e.g. after the amount changed), every past proposal is history. */}
         <EarlierProposals proposals={claim.landlordShareCents == null ? proposalHistory(events) : proposalHistory(events).slice(0, -1)} />
       </section>
@@ -248,7 +258,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
         <ActivityList events={condenseReviews(events)} />
       </section>
 
-      {open && claim.submittedBy === user.id && <WithdrawButton claimId={claim.id} />}
+      {open && mine && <WithdrawButton claimId={claim.id} draft={draft} />}
     </div>
   );
 }
@@ -286,19 +296,7 @@ type Step = { id: string; type: string; data: unknown };
 
 const CHANGE_TYPES = new Set(["evidence.added", "evidence.removed", "claim.amount_changed", "claim.date_changed"]);
 
-function AiReview({
-  reviewing,
-  claimId,
-  steps,
-  reviewNumber,
-  children,
-}: {
-  reviewing: boolean;
-  claimId: string;
-  steps: Step[];
-  reviewNumber: number;
-  children?: React.ReactNode;
-}) {
+function AiReview({ reviewing, claimId, steps, reviewNumber }: { reviewing: boolean; claimId: string; steps: Step[]; reviewNumber: number }) {
   if (!reviewing && steps.length === 0) return null;
   const shown = steps.filter((s) => STEP_LABELS[s.type]);
   const notes = steps.filter((s) => !STEP_LABELS[s.type] && s.type !== "agent.review_started" && s.type !== "agent.review_finished");
@@ -308,16 +306,10 @@ function AiReview({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight">
           {ASSISTANT.name}&apos;s review
-          {reviewNumber > 0 && (
-            <span className="ml-2 text-sm font-normal text-stone-500">
-              Review {Math.min(reviewNumber, MAX_REVIEWS)} of {MAX_REVIEWS}
-              {reviewNumber >= MAX_REVIEWS && " · final"}
-            </span>
-          )}
+          {reviewNumber > 1 && <span className="ml-2 text-sm font-normal text-stone-500">Review {reviewNumber}</span>}
         </h2>
         <span className="text-xs text-stone-500">{ASSISTANT.disclosure} · her checks are hints, not verdicts</span>
       </div>
-      {children && <div className="mt-3">{children}</div>}
       {reviewing && (
         <div className="mt-3">
           <ReviewRunner claimId={claimId} />

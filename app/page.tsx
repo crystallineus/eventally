@@ -10,52 +10,77 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   if (await getCurrentUser()) redirect("/ledger");
   const [users, { demo }] = await Promise.all([getDemoUsers(), searchParams]);
 
+  const tom = users.find((u) => u.role === "landlord");
+
   return (
-    <div className="mx-auto max-w-xl py-12">
+    <div className="mx-auto max-w-2xl py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Repairs, settled on the next rent.</h1>
       <p className="mt-3 text-stone-600">
-        A tenant or landlord fronts a repair, uploads the receipt, and Aunt Tally, our AI assistant, checks the evidence against the
-        lease. Once both sides agree, the amount lands on next month&apos;s PayPal rent invoice.
+        EvenTally settles repair costs between landlords and tenants, in either direction. Whoever pays for a repair submits the
+        receipt and photos; {ASSISTANT.name}, our AI assistant, checks them against the lease and proposes a fair split. Once both
+        sides approve, it lands on the next PayPal rent invoice.
       </p>
-      <div className="mt-6 flex items-start gap-3 rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
-        <AuntTallyAvatar size={52} label />
-        <div className="text-sm text-stone-700">
-          <p className="font-semibold text-stone-900">
-            Meet {ASSISTANT.name} <span className="font-normal text-stone-500">({ASSISTANT.fullName})</span>
-          </p>
-          <p className="mt-1">
-            She reads receipts, checks the math and dates, looks at the photos, and suggests who pays what based on your
-            lease. She can also explain your bill and keep track of what&apos;s waiting on you.
-          </p>
-          <p className="mt-1 text-stone-500">She&apos;s an AI assistant, not a person, and she&apos;s on nobody&apos;s side. You two always make the final call.</p>
-        </div>
-      </div>
-      <p className="mt-8 text-sm font-medium text-stone-500">This is a demo with fictional people and PayPal sandbox money. Pick who you are:</p>
-      {users.length ? (
-        <form action={switchUser} className="mt-3 grid gap-3 sm:grid-cols-2">
-          {users.map((u) => (
-            <PersonButton key={u.id} name="userId" value={u.id} title={u.name} subtitle={`${u.role}${u.businessName ? ` · ${u.businessName}` : ""}`} />
-          ))}
+
+      <ul className="mt-8 grid gap-3 sm:grid-cols-3">
+        <Person
+          avatar={<AuntTallyAvatar size={44} />}
+          name={ASSISTANT.name}
+          role="AI assistant"
+          about="Reviews receipts, photos and the lease, then proposes who pays what. She can act for you, but only after you confirm."
+        />
+        <Person
+          avatar={<Initials text="TB" className="bg-ink text-white" />}
+          name="Tom Becker"
+          role="Landlord · SJ Rentals"
+          about="Bills rent through PayPal invoices. Maya's sink repair is waiting for his approval."
+        />
+        <Person
+          avatar={<Initials text="MC" className="bg-sky-200 text-sky-900" />}
+          name="Maya Chen"
+          role="Tenant"
+          about="Paid a plumber when the kitchen sink leaked, and wants it credited on her next rent."
+        />
+      </ul>
+
+      <p className="mt-8 text-stone-600">
+        You&apos;ll start as Tom, the landlord. Switch between Tom and Maya at the top right to see both sides. Your demo is private
+        to this browser and resets after {DEMO_DAYS} days.
+      </p>
+      {tom ? (
+        // Came back after picking someone else on a demo that still exists: open it as Tom.
+        <form action={switchUser} className="mt-5">
+          <input type="hidden" name="userId" value={tom.id} />
+          <StartButton />
           <FormBusy message="Opening your demo…" />
         </form>
       ) : (
         // First visit: each visitor gets their own copy of the demo, so nobody steps on anyone else.
-        <PostForm action="/api/demo/start" message="Setting up your demo…" className="mt-3 grid gap-3 sm:grid-cols-2">
-          <PersonButton name="role" value="tenant" title="Maya Chen" subtitle="tenant · paid a plumber, waiting on Tom" />
-          <PersonButton name="role" value="landlord" title="Tom Becker" subtitle="landlord · SJ Rentals · a claim is waiting on you" />
+        <PostForm action="/api/demo/start" message="Setting up your demo…" className="mt-5">
+          <input type="hidden" name="role" value="landlord" />
+          <StartButton />
         </PostForm>
       )}
       {demo === "failed" && <p className="mt-3 text-sm text-red-700">The demo couldn&apos;t start. Please try again in a moment.</p>}
-      <p className="mt-4 text-sm text-stone-500">Your demo is private to this browser and resets after {DEMO_DAYS} days. You can switch between Tom and Maya at the top.</p>
+      <p className="mt-4 text-xs text-stone-500">Fictional people and data · PayPal sandbox, no real money moves.</p>
     </div>
   );
 }
 
-function PersonButton({ name, value, title, subtitle }: { name: string; value: string; title: string; subtitle: string }) {
+function Person({ avatar, name, role, about }: { avatar: React.ReactNode; name: string; role: string; about: string }) {
   return (
-    <button name={name} value={value} className="rounded-2xl bg-white p-4 text-left shadow-card ring-1 ring-transparent hover:ring-sky-300">
-      <span className="block font-medium">{title}</span>
-      <span className="block text-sm text-stone-500 first-letter:uppercase">{subtitle}</span>
-    </button>
+    <li className="rounded-2xl bg-white p-4 shadow-card">
+      {avatar}
+      <p className="mt-3 font-semibold text-stone-900">{name}</p>
+      <p className="text-xs font-medium text-sky-700">{role}</p>
+      <p className="mt-2 text-sm text-stone-600">{about}</p>
+    </li>
   );
+}
+
+function Initials({ text, className }: { text: string; className: string }) {
+  return <span className={`grid size-11 place-items-center rounded-full text-sm font-semibold ${className}`}>{text}</span>;
+}
+
+function StartButton() {
+  return <button className="rounded-full bg-sky-600 px-6 py-2.5 font-medium text-white shadow-card hover:bg-sky-700">Start as Tom</button>;
 }

@@ -13,7 +13,9 @@ const STYLES: Record<Status, { label: string; className: string }> = {
   paid_out: { label: "Paid back via PayPal", className: "bg-emerald-50 text-emerald-700" },
 };
 
-export function ClaimStatus({ status }: { status: Status }) {
+/** `draft`: the submitter hasn't sent it yet, so only they see it. */
+export function ClaimStatus({ status, draft = false }: { status: Status; draft?: boolean }) {
   const { label, className } = STYLES[status];
+  if (draft) return <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600">Draft · {label}</span>;
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${className}`}>{label}</span>;
 }

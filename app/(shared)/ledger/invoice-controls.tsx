@@ -55,7 +55,7 @@ export function FastForwardButton({ leaseId, dueLabel }: { leaseId: string; dueL
     <form action={action} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="leaseId" value={leaseId} />
       <button disabled={pending} className="rounded-full border border-sky-300 bg-white px-4 py-1.5 text-sm font-medium text-sky-800 hover:border-sky-500 disabled:opacity-50">
-        {pending ? "Running…" : `⏩ Jump to ${dueLabel} and run the schedule`}
+        {pending ? "Running…" : `Jump to ${dueLabel} and run the schedule`}
       </button>
       {(state.error ?? state.note) && <span className={`text-sm ${state.error ? "text-red-700" : "text-sky-900"}`}>{state.error ?? state.note}</span>}
       <BusyOverlay show={pending} message="Running the schedule…" />

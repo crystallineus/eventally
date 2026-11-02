@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { isDraft, reviewsLeft, visibleTo } from "@/lib/claims";
 import { planNextInvoice } from "@/lib/ledger";
 import { formatUsd } from "@/lib/money";
 import { formatPeriod } from "@/lib/period";
@@ -97,8 +98,15 @@ const STOPWORDS = new Set(["the", "and", "claim", "repair", "for", "with", "that
 const words = (text: string) => new Set(text.toLowerCase().match(/[a-z0-9]+/g)?.filter((w) => w.length > 2 && !STOPWORDS.has(w)) ?? []);
 
 /** Find a claim on the lease by id or by the words someone used for it. */
-export async function resolveClaim(lease: Lease, ref: string) {
+/** The claims on the lease this person can see: everything sent, plus their own drafts. */
+async function claimsFor(lease: Lease, role: Role) {
+  const viewer = role === "landlord" ? lease.landlordId : (lease.tenantId ?? "");
   const claims = await db().select().from(schema.claims).where(eq(schema.claims.leaseId, lease.id)).orderBy(desc(schema.claims.createdAt));
+  return claims.filter((c) => visibleTo(c, viewer));
+}
+
+export async function resolveClaim(lease: Lease, role: Role, ref: string) {
+  const claims = await claimsFor(lease, role);
   return claims.find((c) => c.id === ref) ?? bestMatch(claims, ref);
 }
 
@@ -117,14 +125,14 @@ function bestMatch(claims: Claim[], ref: string): Claim | undefined {
 }
 
 /** All repair claims on the lease, newest first. */
-export async function listClaims(lease: Lease) {
-  const claims = await db().select().from(schema.claims).where(eq(schema.claims.leaseId, lease.id)).orderBy(desc(schema.claims.createdAt));
+export async function listClaims(lease: Lease, role: Role) {
+  const claims = await claimsFor(lease, role);
   return { claims: claims.map((c) => ({ ...claimSummary(lease, c), claim_id: c.id })), all_claims_link: `/claims?lease=${lease.id}` };
 }
 
 /** One claim in detail: what happened, where it stands, Aunt Tally's review, and what's next. */
 export async function explainClaim(lease: Lease, role: Role, ref: string) {
-  const claims = await db().select().from(schema.claims).where(eq(schema.claims.leaseId, lease.id)).orderBy(desc(schema.claims.createdAt));
+  const claims = await claimsFor(lease, role);
   const c = claims.find((x) => x.id === ref) ?? bestMatch(claims, ref);
   if (!c) return { error: `No claim matching "${ref}" on this lease.`, claims: claims.map((x) => x.title) };
 
@@ -142,8 +150,11 @@ export async function explainClaim(lease: Lease, role: Role, ref: string) {
     .map((r) => `${r!.status}: ${r!.summary}`);
   const myApproval = role === "landlord" ? c.landlordApprovedAt : c.tenantApprovedAt;
 
-  const nextStep =
-    c.status === "awaiting_approval"
+  const nextStep = isDraft(c)
+    ? c.status === "awaiting_approval"
+      ? "It's your draft: only you can see it. Approve the split (or propose your own) to send it to the other side, or withdraw it."
+      : "It's your draft: only you can see it. Make the changes and press Review again, or propose a split, which sends it."
+    : c.status === "awaiting_approval"
       ? myApproval ? "You approved; waiting for the other side." : "Your turn: approve the split or propose a different one."
       : c.status === "needs_evidence"
         ? "Make the changes (photos, amount, date), then press Review again, or propose a split yourself."
@@ -161,7 +172,9 @@ export async function explainClaim(lease: Lease, role: Role, ref: string) {
     approvals: { landlord: c.landlordApprovedAt ? "approved" : "not yet", tenant: c.tenantApprovedAt ? "approved" : "not yet" },
     tenant_asked_to_be_paid_back_now: c.tenantWantsPayout,
     payout: payout ? { status: payout.status, amount: formatUsd(payout.amountCents) } : null,
+    draft: isDraft(c) ? "yes: only the submitter can see it until they approve or propose a split" : "no: both sides see it",
     aunt_tally_reviews: reviews,
+    reviews_left: await reviewsLeft(c.id),
     latest_checks: checks,
     evidence_requested: evidenceRequest ? (evidenceRequest.data as { result?: { summary?: string } }).result?.summary : null,
     next_step_for_you: nextStep,
@@ -173,7 +186,7 @@ export type Todo = { text: string; href: string };
 /** What's waiting on this person, most urgent first. */
 export async function listTodos(lease: Lease, role: Role): Promise<Todo[]> {
   const [claims, invoices, entries, people] = await Promise.all([
-    db().select().from(schema.claims).where(eq(schema.claims.leaseId, lease.id)).orderBy(desc(schema.claims.updatedAt)),
+    claimsFor(lease, role),
     db().select().from(schema.invoices).where(eq(schema.invoices.leaseId, lease.id)),
     db().select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.leaseId, lease.id)),
     db().select({ id: schema.users.id, name: schema.users.name }).from(schema.users).where(inArray(schema.users.id, [lease.landlordId, lease.tenantId ?? lease.landlordId])),
@@ -206,7 +219,9 @@ export async function listTodos(lease: Lease, role: Role): Promise<Todo[]> {
   for (const c of claims) {
     const href = `/claims/${c.id}`;
     const myApproval = role === "landlord" ? c.landlordApprovedAt : c.tenantApprovedAt;
-    if (c.status === "awaiting_approval" && !myApproval) {
+    if (isDraft(c)) {
+      todos.push({ text: `"${c.title}" is still your draft. Approve the split (or propose your own) to send it to ${other}.`, href });
+    } else if (c.status === "awaiting_approval" && !myApproval) {
       todos.push({ text: `Approve or counter the split on "${c.title}".`, href });
     } else if (c.status === "needs_evidence") {
       const from = (requests.find((r) => r.claimId === c.id)?.data as { result?: { from?: string } } | undefined)?.result?.from;

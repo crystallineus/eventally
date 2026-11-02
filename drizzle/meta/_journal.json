@@ -71,6 +71,13 @@
       "when": 1793412260984,
       "tag": "0009_autopay",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793601000735,
+      "tag": "0010_claim_drafts",
+      "breakpoints": true
     }
   ]
 }

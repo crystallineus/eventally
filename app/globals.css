@@ -78,29 +78,3 @@
     box-shadow: 0 0 0 3px rgb(80 125 188 / 0.6);
   }
 }
-
-/*
- * The same breathing ring for elements that keep their own shadow (the tour bubble): drawn with an
- * outline, so it doesn't replace the shadow the way the box-shadow pulse would.
- */
-@keyframes tour-frame {
-  0%,
-  100% {
-    outline-color: rgb(80 125 188 / 0.55);
-    outline-offset: 0;
-  }
-  60% {
-    outline-color: rgb(80 125 188 / 0);
-    outline-offset: 9px;
-  }
-}
-.tour-frame {
-  outline: 2px solid rgb(80 125 188 / 0.55);
-  animation: tour-frame 1.8s ease-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .tour-frame {
-    animation: none;
-    outline: 3px solid rgb(80 125 188 / 0.6);
-  }
-}

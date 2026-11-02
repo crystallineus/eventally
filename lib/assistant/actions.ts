@@ -103,7 +103,8 @@ export async function prepareAction(
       title: `Submit the claim "${title}"?`,
       lines: [
         `What happened: ${description}`,
-        `Amount: ${cents == null ? "Read from the receipt" : formatUsd(cents)}`,
+        // Without an amount the review reads it from the receipt; the card only shows one they gave.
+        ...(cents == null ? [] : [`Amount: ${formatUsd(cents)}`]),
         ...(issueDate ? [`Reported: ${issueDate}`] : []),
         photoLine,
         ...(role === "tenant" ? [`Payback: ${wantsPayout ? "Right away via PayPal" : "Credit on your next rent"}`] : []),

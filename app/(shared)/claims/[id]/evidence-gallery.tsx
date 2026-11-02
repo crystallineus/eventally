@@ -63,7 +63,7 @@ export function EvidenceGallery({ claimId, photos }: { claimId: string; photos: 
                         <form
                           action={remove}
                           onSubmit={(e) => {
-                            if (!confirm("Remove this photo? The file is deleted; the claim history notes that you removed it.")) e.preventDefault();
+                            if (!confirm("Remove this photo? It leaves the claim and later reviews; the other side can still see that you removed it.")) e.preventDefault();
                           }}
                           className="absolute top-1 right-1"
                         >

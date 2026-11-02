@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { asc, eq, getTableColumns } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, isNull } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 
 // Evidence files live in Postgres (bytea) for now. This module is the only code that reads or
@@ -66,7 +66,7 @@ export async function getClaimEvidence(claimId: string) {
     .select({ ...getTableColumns(schema.evidence), sampleData: schema.demoPhotos.data })
     .from(schema.evidence)
     .leftJoin(schema.demoPhotos, eq(schema.evidence.demoPhoto, schema.demoPhotos.name))
-    .where(eq(schema.evidence.claimId, claimId))
+    .where(and(eq(schema.evidence.claimId, claimId), isNull(schema.evidence.removedAt)))
     .orderBy(asc(schema.evidence.createdAt));
   return rows.map(({ sampleData, ...row }) => ({ ...row, data: fileOf({ data: row.data, sampleData }) }));
 }

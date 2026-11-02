@@ -1,4 +1,5 @@
 import { and, desc, eq, gt, inArray, or } from "drizzle-orm";
+import { claimVisibility } from "@/lib/claims";
 import { db, schema } from "@/lib/db";
 import { isNotable, NOTIFY_LEVELS, type NotifyLevel } from "@/lib/notifications-shared";
 import type { User } from "@/lib/session";
@@ -32,7 +33,14 @@ export async function getNotifications(user: User, limit = 12): Promise<{ items:
     .orderBy(desc(schema.events.createdAt))
     .limit(300);
 
-  const notable = events.filter((e) => isNotable(e, roleOf.get(e.leaseId)!, user.notify));
+  // Nothing from someone else's draft; for a claim sent to you, only what happened once it was sent.
+  const { hidden, sharedAt } = await claimVisibility([...roleOf.keys()], user.id);
+  const notable = events.filter(
+    (e) =>
+      isNotable(e, roleOf.get(e.leaseId)!, user.notify) &&
+      !(e.claimId && hidden.has(e.claimId)) &&
+      !(e.claimId && sharedAt.has(e.claimId) && e.createdAt < sharedAt.get(e.claimId)! && e.type !== "claim.shared"),
+  );
   const seen = user.notificationsSeenAt?.getTime() ?? 0;
   const items = notable.slice(0, limit).map((event) => ({
     id: event.id,

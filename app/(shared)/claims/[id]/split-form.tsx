@@ -4,7 +4,8 @@ import { useActionState } from "react";
 import { submitSplit, type FormState } from "../actions";
 
 // Manual split for now; the AI agent will propose one (with lease citations) in the same shape.
-export function SplitForm({ claimId, hasProposal }: { claimId: string; hasProposal: boolean }) {
+/** `sendTo`: on the submitter's draft, proposing also sends it to this person. */
+export function SplitForm({ claimId, hasProposal, sendTo = null }: { claimId: string; hasProposal: boolean; sendTo?: string | null }) {
   const [state, action, pending] = useActionState<FormState, FormData>(submitSplit, { error: null });
 
   return (
@@ -21,9 +22,13 @@ export function SplitForm({ claimId, hasProposal }: { claimId: string; hasPropos
           <input name="rationale" required placeholder="Plumbing repairs not caused by the tenant are the landlord's responsibility (lease §12a)." className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2" />
         </label>
         <button disabled={pending} className="rounded-full bg-stone-900 px-4 py-2 font-medium text-white hover:bg-stone-700 disabled:opacity-50">
-          {pending ? "Saving…" : "Propose"}
+          {pending ? "Saving…" : sendTo ? `Propose and send to ${sendTo}` : "Propose"}
         </button>
-        <p className="text-xs text-stone-500 sm:col-span-3">Proposing counts as your approval. The other side then approves or proposes something else.</p>
+        <p className="text-xs text-stone-500 sm:col-span-3">
+          {sendTo
+            ? `Proposing counts as your approval and sends the claim to ${sendTo}, who then approves or proposes something else.`
+            : "Proposing counts as your approval. The other side then approves or proposes something else."}
+        </p>
         {state.error && (
           <p role="alert" className="text-red-700 sm:col-span-3">
             {state.error}

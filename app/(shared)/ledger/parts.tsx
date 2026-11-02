@@ -106,7 +106,7 @@ export function ClaimList({ claims, lease, pulseHref = null }: { claims: Claim[]
               </span>
             </span>
             <span className="flex items-center gap-3">
-              <ClaimStatus status={c.status} />
+              <ClaimStatus status={c.status} draft={c.sharedAt === null} />
               <span className="tabular-nums">{formatUsd(c.amountCents ?? 0)}</span>
             </span>
           </Link>

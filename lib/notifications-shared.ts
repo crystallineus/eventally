@@ -11,8 +11,8 @@ type Role = "landlord" | "tenant";
 
 /** Events that usually mean "you have something to look at or do". */
 const IMPORTANT: Record<Role, string[]> = {
-  tenant: ["claim.submitted", "split.proposed", "claim.approved", "claim.withdrawn", "agent.review_finished", "invoice.sent", "invoice.reminder_sent", "payout.succeeded", "payout.failed", "invoice.autopay_skipped", "invoice.autopay_failed"],
-  landlord: ["claim.submitted", "split.proposed", "claim.approved", "claim.withdrawn", "agent.review_finished", "invoice.paid", "payout.failed", "invoice.auto_send_failed"],
+  tenant: ["claim.shared", "claim.submitted", "split.proposed", "claim.approved", "claim.withdrawn", "agent.review_finished", "invoice.sent", "invoice.reminder_sent", "payout.succeeded", "payout.failed", "invoice.autopay_skipped", "invoice.autopay_failed"],
+  landlord: ["claim.shared", "claim.submitted", "split.proposed", "claim.approved", "claim.withdrawn", "agent.review_finished", "invoice.paid", "payout.failed", "invoice.auto_send_failed"],
 };
 
 export function isNotable(event: { type: string; actor: string }, role: Role, level: NotifyLevel): boolean {

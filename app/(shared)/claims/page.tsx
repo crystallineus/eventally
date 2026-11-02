@@ -14,7 +14,7 @@ export default async function ClaimsPage({ searchParams }: PageProps<"/claims">)
   const leases = await getLeasesForUser(user.id);
   const lease = leases.find((l) => l.id === leaseParam) ?? leases[0];
   if (!lease) notFound();
-  const [claims, tour] = await Promise.all([listClaims(lease.id), getTour(user)]);
+  const [claims, tour] = await Promise.all([listClaims(lease.id, user.id), getTour(user)]);
   const open = claims.filter((c) => !CLOSED.includes(c.status));
   const closed = claims.filter((c) => CLOSED.includes(c.status));
 

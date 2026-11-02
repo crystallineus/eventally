@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { viaMeta } from "@/lib/via";
 import { formatUsd, splitByShare, type Cents } from "@/lib/money";
@@ -13,7 +13,17 @@ export type Role = "landlord" | "tenant";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** A claim plus the viewer's role, or null if it doesn't exist or the viewer isn't on the lease. */
+/** A draft (not yet sent by its submitter) is visible only to the submitter. */
+export function visibleTo(claim: Pick<Claim, "sharedAt" | "submittedBy">, userId: string) {
+  return claim.sharedAt !== null || claim.submittedBy === userId;
+}
+
+export const isDraft = (claim: Pick<Claim, "sharedAt">) => claim.sharedAt === null;
+
+/**
+ * A claim plus the viewer's role, or null if it doesn't exist, the viewer isn't on the lease, or
+ * it's someone else's draft.
+ */
 export async function getClaimForUser(claimId: string, userId: string): Promise<{ claim: Claim; lease: Lease; role: Role } | null> {
   if (!UUID.test(claimId)) return null;
   const [row] = await db()
@@ -21,7 +31,7 @@ export async function getClaimForUser(claimId: string, userId: string): Promise<
     .from(schema.claims)
     .innerJoin(schema.leases, eq(schema.claims.leaseId, schema.leases.id))
     .where(and(eq(schema.claims.id, claimId), or(eq(schema.leases.landlordId, userId), eq(schema.leases.tenantId, userId))));
-  if (!row) return null;
+  if (!row || !visibleTo(row.claim, userId)) return null;
   return { ...row, role: row.lease.landlordId === userId ? "landlord" : "tenant" };
 }
 
@@ -34,6 +44,7 @@ export async function getClaimDetail(claimId: string) {
         uploadedBy: schema.evidence.uploadedBy,
         mimeType: schema.evidence.mimeType,
         createdAt: schema.evidence.createdAt,
+        removedAt: schema.evidence.removedAt,
       })
       .from(schema.evidence)
       .where(eq(schema.evidence.claimId, claimId))
@@ -44,8 +55,26 @@ export async function getClaimDetail(claimId: string) {
   return { evidence, events, names: new Map(people.map((p) => [p.id, p.name])) };
 }
 
-export async function listClaims(leaseId: string) {
-  return db().select().from(schema.claims).where(eq(schema.claims.leaseId, leaseId)).orderBy(desc(schema.claims.createdAt));
+/** The lease's claims this person can see: everything sent, plus their own drafts. */
+export async function listClaims(leaseId: string, viewerId: string) {
+  const claims = await db().select().from(schema.claims).where(eq(schema.claims.leaseId, leaseId)).orderBy(desc(schema.claims.createdAt));
+  return claims.filter((c) => visibleTo(c, viewerId));
+}
+
+/**
+ * For each claim on these leases that someone else hasn't sent yet: hide its events from this
+ * viewer. For each claim sent to them: when it was sent (its earlier history isn't news to them).
+ */
+export async function claimVisibility(leaseIds: string[], viewerId: string) {
+  if (!leaseIds.length) return { hidden: new Set<string>(), sharedAt: new Map<string, Date>() };
+  const claims = await db()
+    .select({ id: schema.claims.id, submittedBy: schema.claims.submittedBy, sharedAt: schema.claims.sharedAt })
+    .from(schema.claims)
+    .where(inArray(schema.claims.leaseId, leaseIds));
+  return {
+    hidden: new Set(claims.filter((c) => !visibleTo(c, viewerId)).map((c) => c.id)),
+    sharedAt: new Map(claims.filter((c) => c.submittedBy !== viewerId && c.sharedAt).map((c) => [c.id, c.sharedAt!])),
+  };
 }
 
 export type NewClaim = {
@@ -113,16 +142,15 @@ export async function addEvidence(user: User, claimId: string, files: { kind: Ev
 }
 
 /**
- * The uploader removes one of their photos while the claim is still being agreed. The file is
- * deleted outright (it may have been uploaded by mistake); the log keeps who removed what kind,
- * and its hash.
+ * The uploader removes one of their photos while the claim is still being agreed. It's hidden from
+ * the gallery and from later reviews, but kept so both sides can see what was removed.
  */
 export async function removeEvidence(user: User, evidenceId: string) {
   if (!UUID.test(evidenceId)) throw new Error("Photo not found");
   const [item] = await db()
     .select({ id: schema.evidence.id, claimId: schema.evidence.claimId, kind: schema.evidence.kind, uploadedBy: schema.evidence.uploadedBy, sha256: schema.evidence.sha256 })
     .from(schema.evidence)
-    .where(eq(schema.evidence.id, evidenceId));
+    .where(and(eq(schema.evidence.id, evidenceId), isNull(schema.evidence.removedAt)));
   const found = item && (await getClaimForUser(item.claimId, user.id));
   if (!item || !found) throw new Error("Photo not found");
   if (item.uploadedBy !== user.id) throw new Error("Only the person who uploaded a photo can remove it");
@@ -134,16 +162,16 @@ export async function removeEvidence(user: User, evidenceId: string) {
       const [{ n }] = await tx
         .select({ n: count() })
         .from(schema.evidence)
-        .where(and(eq(schema.evidence.claimId, item.claimId), eq(schema.evidence.kind, "receipt")));
+        .where(and(eq(schema.evidence.claimId, item.claimId), eq(schema.evidence.kind, "receipt"), isNull(schema.evidence.removedAt)));
       if (n <= 1) throw new Error("A claim needs a receipt. Upload the right one first, then remove this one.");
     }
-    await tx.delete(schema.evidence).where(eq(schema.evidence.id, item.id));
+    await tx.update(schema.evidence).set({ removedAt: new Date() }).where(eq(schema.evidence.id, item.id));
     await tx.insert(schema.events).values({
       leaseId: found.lease.id,
       claimId: item.claimId,
       actor: found.role,
       type: "evidence.removed",
-      data: { ...viaMeta(), by: user.name, kind: item.kind, sha256: item.sha256 },
+      data: { ...viaMeta(), by: user.name, kind: item.kind, sha256: item.sha256, evidenceId: item.id },
     });
     if (found.claim.status === "awaiting_approval") await clearApprovals(tx, item.claimId);
   });
@@ -157,8 +185,23 @@ async function clearApprovals(tx: Pick<ReturnType<typeof db>, "update">, claimId
     .where(eq(schema.claims.id, claimId));
 }
 
-/** Most AI reviews one claim gets. After that, the parties settle the split themselves. */
-export const MAX_REVIEWS = 3;
+/**
+ * Aunt Tally reviews a claim when it's submitted; after that each side can ask her to look again
+ * this many times (the submitter can use theirs while it's still a draft). Then the parties settle
+ * the split themselves.
+ */
+export const REVIEWS_PER_PERSON = 2;
+export const MAX_REVIEWS = 1 + 2 * REVIEWS_PER_PERSON;
+
+/** How many more reviews each side can ask for on this claim. */
+export async function reviewsLeft(claimId: string): Promise<Record<Role, number>> {
+  const asked = await db()
+    .select({ actor: schema.events.actor })
+    .from(schema.events)
+    .where(and(eq(schema.events.claimId, claimId), eq(schema.events.type, "claim.review_requested")));
+  const used = (role: Role) => asked.filter((e) => e.actor === role).length;
+  return { landlord: Math.max(0, REVIEWS_PER_PERSON - used("landlord")), tenant: Math.max(0, REVIEWS_PER_PERSON - used("tenant")) };
+}
 
 export async function reviewCount(claimId: string): Promise<number> {
   const [row] = await db()
@@ -169,16 +212,16 @@ export async function reviewCount(claimId: string): Promise<number> {
 }
 
 /**
- * Either party sends a claim back to the AI, up to MAX_REVIEWS: when it's waiting for changes, or
- * when evidence changed after a proposal. A pending proposal is cleared (it stays in the history)
- * so the review starts from the current evidence.
+ * Either party sends a claim back to the AI, up to REVIEWS_PER_PERSON times each: when it's waiting
+ * for changes, or when evidence changed after a proposal. A pending proposal is cleared (it stays
+ * in the history) so the review starts from the current evidence.
  */
 export async function requestReview(user: User, claimId: string) {
   const found = await getClaimForUser(claimId, user.id);
   if (!found) throw new Error("Claim not found");
   const from = found.claim.status;
   if (from !== "needs_evidence" && from !== "awaiting_approval") throw new Error("This claim can't be reviewed again now");
-  if ((await reviewCount(claimId)) >= MAX_REVIEWS) throw new Error(`${ASSISTANT.name} has already reviewed this claim ${MAX_REVIEWS} times`);
+  if ((await reviewsLeft(claimId))[found.role] <= 0) throw new Error(`You've asked ${ASSISTANT.name} to review this claim ${REVIEWS_PER_PERSON} times, which is the most each side can`);
 
   await db().transaction(async (tx) => {
     const [updated] = await tx
@@ -212,13 +255,15 @@ export async function proposeSplit(user: User, claimId: string, landlordBasisPoi
       .innerJoin(schema.leases, eq(schema.claims.leaseId, schema.leases.id))
       .where(eq(schema.claims.id, claimId))
       .for("update", { of: schema.claims });
-    if (!row || roleOrNull(row.lease, user.id) === null) throw new Error("Claim not found");
+    if (!row || roleOrNull(row.lease, user.id) === null || !visibleTo(row.claim, user.id)) throw new Error("Claim not found");
     if (!isOpen(row.claim)) throw new Error("This claim is closed");
     if (row.claim.amountCents == null) throw new Error("Enter the receipt total first");
 
     const role = roleOf(row.lease, user.id);
     const { landlord, tenant } = splitByShare(row.claim.amountCents, landlordBasisPoints);
     const now = new Date();
+    // The submitter proposing on their draft sends it to the other side.
+    if (isDraft(row.claim)) await share(tx, row.claim, row.lease, user, now);
     await tx
       .update(schema.claims)
       .set({
@@ -250,13 +295,15 @@ export async function approveClaim(user: User, claimId: string) {
       .innerJoin(schema.leases, eq(schema.claims.leaseId, schema.leases.id))
       .where(eq(schema.claims.id, claimId))
       .for("update", { of: schema.claims });
-    if (!row || roleOrNull(row.lease, user.id) === null) throw new Error("Claim not found");
+    if (!row || roleOrNull(row.lease, user.id) === null || !visibleTo(row.claim, user.id)) throw new Error("Claim not found");
     if (row.claim.status !== "awaiting_approval") throw new Error("There is no proposal to approve");
 
     const role = roleOf(row.lease, user.id);
     // Already approved (e.g. a double click): nothing to change, nothing to log.
     if ((role === "landlord" ? row.claim.landlordApprovedAt : row.claim.tenantApprovedAt) !== null) return;
     const now = new Date();
+    // The submitter approving their draft sends it to the other side.
+    if (isDraft(row.claim)) await share(tx, row.claim, row.lease, user, now);
     const landlordApprovedAt = role === "landlord" ? now : row.claim.landlordApprovedAt;
     const tenantApprovedAt = role === "tenant" ? now : row.claim.tenantApprovedAt;
     const bothApproved = landlordApprovedAt !== null && tenantApprovedAt !== null;
@@ -381,6 +428,20 @@ export async function withdrawClaim(user: User, claimId: string) {
   await db().transaction(async (tx) => {
     await tx.update(schema.claims).set({ status: "withdrawn", updatedAt: new Date() }).where(eq(schema.claims.id, claimId));
     await tx.insert(schema.events).values({ leaseId: found.lease.id, claimId, actor: found.role, type: "claim.withdrawn", data: { ...viaMeta(), by: user.name } });
+  });
+}
+
+/** Send a draft to the other side; from now on they see it and its whole history. */
+async function share(tx: Pick<ReturnType<typeof db>, "update" | "insert">, claim: Claim, lease: Lease, user: User, now: Date) {
+  await tx.update(schema.claims).set({ sharedAt: now }).where(eq(schema.claims.id, claim.id));
+  const role = roleOf(lease, user.id);
+  await tx.insert(schema.events).values({
+    leaseId: lease.id,
+    claimId: claim.id,
+    actor: role,
+    type: "claim.shared",
+    data: { ...viaMeta(), by: user.name, title: claim.title, amountCents: claim.amountCents, to: role === "landlord" ? "tenant" : "landlord" },
+    createdAt: now,
   });
 }
 

@@ -12,8 +12,8 @@ export function ReviewAgainButton({ claimId, reviewsLeft }: { claimId: string; r
       <button disabled={pending} className="rounded-full bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 disabled:opacity-50">
         {pending ? "Starting…" : "Review again"}
       </button>
-      <span className="text-sm text-amber-800">
-        {reviewsLeft === 1 ? `This will be ${ASSISTANT.name}'s last review.` : `${ASSISTANT.name} can review it ${reviewsLeft} more times.`}
+      <span className="text-sm text-stone-600">
+        {reviewsLeft === 1 ? `Your last time asking ${ASSISTANT.name} to look again.` : `You can ask ${ASSISTANT.name} ${reviewsLeft} more times.`}
       </span>
       {state.error && <p role="alert" className="w-full text-sm text-red-700">{state.error}</p>}
     </form>

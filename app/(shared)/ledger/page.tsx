@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { condenseReviews } from "@/app/components/event-label";
-import { listClaims } from "@/lib/claims";
+import { claimVisibility, listClaims } from "@/lib/claims";
 import { getLedger, getLeasesForUser, roleIn, type LeaseWithParties } from "@/lib/ledger";
 import { formatUsd } from "@/lib/money";
 import { formatDate, formatLeaseTerm } from "@/lib/period";
@@ -26,7 +26,12 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
     return <p className="text-stone-600">No leases yet. A landlord can add one from Properties.</p>;
   }
 
-  const [ledger, claims, tour] = await Promise.all([getLedger(lease), listClaims(lease.id), getTour(user)]);
+  const [ledger, claims, tour, { hidden: hiddenClaims }] = await Promise.all([
+    getLedger(lease),
+    listClaims(lease.id, user.id),
+    getTour(user),
+    claimVisibility([lease.id], user.id),
+  ]);
   const role = roleIn(lease, user.id);
 
   const openClaims = claims.filter((c) => !CLOSED.includes(c.status));
@@ -134,7 +139,7 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         <p className="mb-3 text-sm text-stone-500">
           Every step — agent checks and reasoning, approvals, payments — is recorded here and visible to both of you.
         </p>
-        <ActivityList events={condenseReviews(ledger.events)} />
+        <ActivityList events={condenseReviews(ledger.events.filter((e) => !(e.claimId && hiddenClaims.has(e.claimId))))} />
       </section>
     </div>
   );

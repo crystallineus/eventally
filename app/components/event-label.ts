@@ -38,6 +38,8 @@ function describe(type: string, data: unknown): string {
       return `${by} asked ${ASSISTANT.name} to review the claim again.`;
     case "claim.payout_preference":
       return d.wantsPayout ? `${by} asked to be paid back right away via PayPal.` : `${by} is fine with a credit on the next rent invoice.`;
+    case "claim.shared":
+      return `${by} sent the claim to the ${d.to === "landlord" ? "landlord" : "tenant"}${d.amountCents != null ? ` (${formatUsd(Number(d.amountCents))})` : ""}. Everything before this was their draft.`;
     case "claim.withdrawn":
       return `${by} withdrew the claim.`;
     case "invoice.created":

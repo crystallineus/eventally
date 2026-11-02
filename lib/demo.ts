@@ -149,6 +149,7 @@ async function screenClaim(tx: Tx, leaseId: string, tomId: string, novemberPaid:
       landlordShareCents: 0,
       tenantShareCents: 4500,
       splitRationale: `${rationale}\n\nLease: ${citation}`,
+      sharedAt: at("2026-10-25T18:10:00Z"),
       landlordApprovedAt: at("2026-10-25T18:10:00Z"),
       tenantApprovedAt: at("2026-10-25T20:40:00Z"),
       createdAt: at("2026-10-24T23:30:00Z"),
@@ -201,6 +202,7 @@ async function screenClaim(tx: Tx, leaseId: string, tomId: string, novemberPaid:
       split: { percent: 0, landlord: 0, tenant: 4500, rationale, citation, why: "Section 12(b) assigns pet damage to window screens to the tenant." },
     }),
     ["landlord", "split.approved", { by: "Tom Becker", landlordShareCents: 0, tenantShareCents: 4500 }],
+    ["landlord", "claim.shared", { by: "Tom Becker", title, amountCents: 4500, to: "tenant" }],
     ["tenant", "split.approved", { by: "Maya Chen", landlordShareCents: 0, tenantShareCents: 4500 }],
     ["system", "claim.approved", { summary: "Both agreed: landlord pays $0.00, tenant pays $45.00. Added to the next rent invoice.", landlordShareCents: 0, tenantShareCents: 4500 }],
   ]);
@@ -227,6 +229,7 @@ async function sinkClaimAwaitingTom(tx: Tx, leaseId: string, mayaId: string) {
       landlordShareCents: 24000,
       tenantShareCents: 0,
       splitRationale: `${rationale}\n\nLease: ${citation}`,
+      sharedAt: hoursAgo(26),
       tenantApprovedAt: hoursAgo(26),
       createdAt: submitted,
       updatedAt: hoursAgo(26),
@@ -276,6 +279,7 @@ async function sinkClaimAwaitingTom(tx: Tx, leaseId: string, mayaId: string) {
       split: { percent: 100, landlord: 24000, tenant: 0, rationale, citation, why: "Plumbing is the landlord's under Section 12(a), and Tom authorized the repair under 12(c)." },
     }),
     ["tenant", "split.approved", { by: "Maya Chen", landlordShareCents: 24000, tenantShareCents: 0 }],
+    ["tenant", "claim.shared", { by: "Maya Chen", title, amountCents: 24000, to: "landlord" }],
   ]);
 }
 

@@ -21,6 +21,7 @@ function claim(overrides: Partial<Claim>): Claim {
     splitRationale: null,
     tenantWantsPayout: false,
     reviewStartedAt: null,
+    sharedAt: new Date(),
     landlordApprovedAt: new Date(),
     tenantApprovedAt: new Date(),
     createdAt: new Date(),

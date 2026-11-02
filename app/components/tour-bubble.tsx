@@ -148,7 +148,7 @@ function Action({ action, pathname }: { action: BubbleAction | null; pathname: s
   if (pathname === action.href.split("#")[0]) return <span className="text-xs font-medium text-sky-800">Press the glowing button on this page.</span>;
   return (
     <Link href={action.href} className={button}>
-      Go →
+      Go
     </Link>
   );
 }

@@ -14,7 +14,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
   return (
     <div className="mx-auto max-w-2xl py-12">
-      <h1 className="text-3xl font-semibold tracking-tight">Repairs, settled on the next rent.</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">Eventually, everyone gets paid back fairly.</h1>
       <p className="mt-3 text-stone-600">
         EvenTally settles repair costs between landlords and tenants, in either direction. Whoever pays for a repair submits the
         receipt and photos; {ASSISTANT.name}, our AI assistant, checks them against the lease and proposes a fair split. Once both

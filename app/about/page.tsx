@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { AuntTallyAvatar } from "@/app/components/aunt-tally";
 import { ASSISTANT } from "@/lib/persona";
 
@@ -50,17 +49,6 @@ export default function AboutPage() {
           <li>Take sides, or pretend to be a person. I&apos;m an AI assistant, and I&apos;ll always say so.</li>
         </ul>
       </section>
-
-      <footer className="space-y-6">
-        <p className="text-right text-stone-600 italic">
-          &mdash; {ASSISTANT.name} ({ASSISTANT.fullName}), {ASSISTANT.disclosure}, EvenTally
-        </p>
-        <p className="text-center">
-          <Link href="/" className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
-            Try the demo
-          </Link>
-        </p>
-      </footer>
     </article>
   );
 }

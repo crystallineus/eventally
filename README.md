@@ -1,6 +1,6 @@
 # EvenTally
 
-**Repairs, settled on the next rent.**
+**Eventually, everyone gets paid back fairly.**
 
 A tenant or landlord fronts a repair and uploads the receipt and photos. Aunt Tally, EvenTally's AI assistant, checks the evidence against the lease and proposes who pays what. Once both sides approve, the amount lands on the next month's PayPal rent invoice as a credit or a charge, or the landlord pays it back right away with PayPal Payouts.
 

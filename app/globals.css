@@ -46,6 +46,21 @@
   --shadow-card: 0 1px 2px rgb(4 8 15 / 0.04), 0 4px 16px rgb(4 8 15 / 0.05);
 }
 
+/*
+ * Tailwind 4 leaves buttons with the default arrow cursor (as browsers do). Show the hand on
+ * everything clickable here, and keep the arrow while a button is disabled.
+ */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  select,
+  label:has(> input[type="checkbox"]),
+  input[type="file"]::file-selector-button {
+    cursor: pointer;
+  }
+}
+
 ::selection {
   background: var(--color-pale-sky);
   color: var(--color-ink);

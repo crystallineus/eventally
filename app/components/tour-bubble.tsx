@@ -17,9 +17,8 @@ const MIN_KEY = "eventally-tour-minimized";
 const listeners = new Set<() => void>();
 function readMinimized() {
   try {
-    const saved = localStorage.getItem(MIN_KEY);
-    // Until someone chooses, phones start with the small chip so the bubble doesn't cover the page.
-    return saved === null ? window.matchMedia("(max-width: 639px)").matches : saved === "1";
+    // Open until someone minimizes it, on phones too.
+    return localStorage.getItem(MIN_KEY) === "1";
   } catch {
     return false;
   }

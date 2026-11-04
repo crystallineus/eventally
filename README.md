@@ -15,6 +15,7 @@ When something breaks in a rental, the tenant often pays for the fix and asks to
 ## What it does
 
 - **AI review of every claim.** Aunt Tally reads the receipt, checks that the line items add up and the dates make sense, looks for the same receipt in earlier claims, compares the before and after photos with the work billed, and quotes the lease's repair clause to propose a split. Every step and her reasoning are shown to both sides.
+- **Drafts first.** A new claim stays private to the person who filed it until they approve it or propose a split; then it's sent to the other side.
 - **Two approvals, then PayPal does the rest.** When landlord and tenant both approve, the split is added to the next PayPal rent invoice as a credit or a charge. The landlord can also pay the tenant back right away with PayPal Payouts.
 - **Aunt Tally acts for you, one confirmation at a time.** In chat she explains any month line by line, lists what's waiting on you, files a claim from photos you attach, approves or proposes a split, sends an invoice or a reminder, or pays rent with your saved PayPal. Each action is a card you confirm yourself; she never decides for the other side.
 - **Rent on autopilot.** The landlord can have each invoice sent 5 days before rent is due; the tenant can save their PayPal once and turn on autopay for the due date (up to 150% of rent; a bigger invoice waits for them).
@@ -27,13 +28,13 @@ When something breaks in a rental, the tenant often pays for the fix and asks to
 
 ## Try it
 
-1. Open [even-tally.vercel.app](https://even-tally.vercel.app) and pick **Maya** (tenant) or **Tom** (landlord). You get your own copy of the demo; it's deleted after 3 days.
-2. Follow **Aunt Tally's tour** in the bottom-right corner. Four steps, about five minutes:
+1. Open [even-tally.vercel.app](https://even-tally.vercel.app) and press **Start as Tom** (the landlord). You get your own copy of the demo, with Maya as Tom's tenant; it's deleted after 3 days.
+2. Follow **Aunt Tally's tour**, which opens in the bottom-right corner. Four steps, about five minutes:
    1. As Tom, approve Maya's sink claim (Aunt Tally already reviewed it).
    2. Send next month's rent invoice through PayPal.
    3. As Maya, pay it: on PayPal's page, or save your PayPal once and let Aunt Tally pay.
-   4. File a new claim by chatting with Aunt Tally. Sample photos of a range hood repair are attached for you.
-3. The button to press next glows. Switch between Tom and Maya at the top of the page.
+   4. File a new claim by chatting with Aunt Tally, then approve it and send it to Tom. Sample photos of a range hood repair are attached for you.
+3. The button to press next glows. When it's the other person's turn, press **Switch to Maya** (or Tom) in the tour, or switch at the top of the page.
 
 **PayPal sandbox buyer** (to pay an invoice on PayPal's page, or to save a PayPal for Maya):
 
@@ -72,7 +73,7 @@ If a webhook is late or can't reach the app, the ledger also asks PayPal for the
 
 - Every dollar amount the AI writes must come from the receipt, the ledger or a tool result; anything else is sent back to be rewritten ([lib/guard.ts](lib/guard.ts)).
 - The AI never moves money and never decides for the other side. Splits need both approvals; every chat action needs the person's own press.
-- At most three reviews per claim, and one request for more evidence.
+- One review when a claim is filed, then up to two more for each side (five in all), and at most one request for more evidence per claim.
 - The daily schedule (auto-send, autopay) is plain code that follows settings people switch on themselves. It never calls the AI.
 
 The model is set with `REVIEW_MODEL` and `ASSISTANT_MODEL`; the live demo runs Claude Haiku 5.5 to keep costs low, and the default is Claude Opus 5.5.
@@ -147,7 +148,7 @@ demo-assets/         fictional sample receipts and photos
 
 ## What's next
 
-Real sign-in and invites by email, email notifications (the in-app setting is ready for it), changing a lease's term with both sides' consent, settling open claims when a lease ends, and letting the review learn from how earlier claims on the same lease were settled.
+Adding your own leases and inviting your tenant by email (adding a lease is turned off in the demo for now), real sign-in, email notifications (the in-app setting is ready for it), changing a lease's term with both sides' consent, settling open claims when a lease ends, and letting the review learn from how earlier claims on the same lease were settled.
 
 ## License
 

@@ -40,7 +40,7 @@ When something breaks in a rental, the tenant often pays for the fix and asks to
 
 | Email | Password |
 | --- | --- |
-| `sb-mie9653530690@personal.example.com` | `SANDBOX_PASSWORD_HERE` |
+| `sb-mie9653530690@personal.example.com` | `M%9++!Kw` |
 
 This is a sandbox account: no real money moves.
 

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { schema } from "@/lib/db";
-import { adjustmentsFromClaims } from "./ledger";
+import { adjustmentsFromClaims, planNextInvoice } from "./ledger";
 
 type Claim = typeof schema.claims.$inferSelect;
+type Lease = typeof schema.leases.$inferSelect;
+type LedgerEntry = typeof schema.ledgerEntries.$inferSelect;
 
 const lease = { landlordId: "tom" };
 
@@ -52,5 +54,26 @@ describe("adjustmentsFromClaims", () => {
         claim({ landlordShareCents: 0, tenantShareCents: 24000 }), // tenant paid and bears it all
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("planNextInvoice", () => {
+  const fullLease = { id: "l", landlordId: "tom", rentCents: 200000, dueDay: 1, startDate: "2026-06-01", endDate: "2027-05-31" } as Lease;
+  const rentFor = (period: string) => ({ kind: "rent", period, amountCents: 200000 }) as LedgerEntry;
+
+  it("bills the last month of the lease", () => {
+    const plan = planNextInvoice(fullLease, [rentFor("2027-04")], []);
+    expect(plan.period).toBe("2027-05");
+    expect(plan.afterLeaseEnd).toBe(false);
+  });
+
+  it("has nothing to bill once the lease has ended", () => {
+    const plan = planNextInvoice(fullLease, [rentFor("2027-05")], []);
+    expect(plan.period).toBe("2027-06");
+    expect(plan.afterLeaseEnd).toBe(true);
+  });
+
+  it("keeps billing a month-to-month lease", () => {
+    expect(planNextInvoice({ ...fullLease, endDate: null }, [rentFor("2027-05")], []).afterLeaseEnd).toBe(false);
   });
 });

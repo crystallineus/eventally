@@ -5,7 +5,7 @@ import { viaMeta } from "@/lib/via";
 import { planNextInvoice } from "@/lib/ledger";
 import { formatUsd, parseUsd, type Cents } from "@/lib/money";
 import { createAndSendInvoice, getInvoice, PayPalError } from "@/lib/paypal";
-import { formatPeriod, nextPeriod } from "@/lib/period";
+import { formatDate, formatPeriod, nextPeriod } from "@/lib/period";
 import type { User } from "@/lib/session";
 
 // Issuing next month's rent invoice and settling it when PayPal says it's paid.
@@ -37,6 +37,7 @@ export async function issueNextInvoice(user: User, leaseId: string): Promise<Inv
     if (outstanding) throw new Error(`The ${formatPeriod(outstanding.period)} invoice hasn't been paid yet`);
 
     const plan = planNextInvoice(lease, entries, claims);
+    if (plan.afterLeaseEnd) throw new Error(`The lease ended on ${formatDate(lease.endDate!)}, so there's no ${plan.label} rent to bill`);
     const [existing] = await tx
       .select()
       .from(schema.invoices)

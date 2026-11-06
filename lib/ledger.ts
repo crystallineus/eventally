@@ -60,7 +60,7 @@ export type PeriodView = {
 export type LedgerView = {
   periods: PeriodView[]; // newest first
   balanceCents: Cents;
-  upcoming: { period: string; label: string; invoice: RentInvoice };
+  upcoming: { period: string; label: string; invoice: RentInvoice; afterLeaseEnd: boolean };
   events: (typeof schema.events.$inferSelect)[];
 };
 
@@ -107,6 +107,9 @@ export async function getLedger(lease: Lease): Promise<LedgerView> {
  * The next rent invoice: rent for the period after the last one billed, plus approved claims
  * and any credit carried over into that period. Used for the preview and to issue the invoice.
  */
+/** The day rent for `period` (YYYY-MM) is due, e.g. 2026-12-01. */
+export const dueDateOf = (lease: Pick<Lease, "dueDay">, period: string) => `${period}-${String(lease.dueDay).padStart(2, "0")}`;
+
 export function planNextInvoice(lease: Lease, entries: LedgerEntry[], claims: Claim[]) {
   const lastRent = entries.filter((e) => e.kind === "rent").map((e) => e.period).sort().at(-1);
   const period = lastRent ? nextPeriod(lastRent) : periodOf(lease.startDate);
@@ -117,6 +120,8 @@ export function planNextInvoice(lease: Lease, entries: LedgerEntry[], claims: Cl
   return {
     period,
     label,
+    // No rent is due after the lease ends, so there's no next invoice to send.
+    afterLeaseEnd: !!lease.endDate && dueDateOf(lease, period) > lease.endDate,
     invoice: buildRentInvoice({ name: `Rent – ${label}`, amountCents: lease.rentCents }, [...adjustmentsFromClaims(lease, claims), ...carriedOver]),
   };
 }

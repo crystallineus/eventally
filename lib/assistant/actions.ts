@@ -22,7 +22,7 @@ import { planNextInvoice } from "@/lib/ledger";
 import { formatUsd, parseUsd, splitByShare } from "@/lib/money";
 import { payClaimNow } from "@/lib/payouts";
 import { ASSISTANT } from "@/lib/persona";
-import { formatPeriod } from "@/lib/period";
+import { formatDate, formatPeriod } from "@/lib/period";
 import { NOTIFY_LABEL, NOTIFY_LEVELS, setNotifyLevel, type NotifyLevel } from "@/lib/notifications";
 import type { User as SessionUser } from "@/lib/session";
 import type { EvidenceKind } from "@/lib/storage";
@@ -125,6 +125,7 @@ export async function prepareAction(
     const outstanding = invoices.find((i) => i.status === "sent" || i.status === "draft");
     if (outstanding) return { error: `The ${formatPeriod(outstanding.period)} invoice hasn't been paid yet, so the next one can't go out.` };
     const plan = planNextInvoice(lease, entries, claims);
+    if (plan.afterLeaseEnd) return { error: `The lease ended on ${formatDate(lease.endDate!)}, so there's no ${plan.label} rent to bill.` };
     return {
       action: { kind },
       title: `Send the ${plan.label} rent invoice through PayPal?`,

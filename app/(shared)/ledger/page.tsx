@@ -82,27 +82,36 @@ export default async function LedgerPage({ searchParams }: PageProps<"/ledger">)
         )}
       </section>
 
-      <section id="next-invoice" className="scroll-mt-24 rounded-2xl border border-dashed border-stone-300 bg-white p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold tracking-tight">Next invoice · {ledger.upcoming.label}</h2>
-          <span className="text-sm text-stone-500">Preview — sent via PayPal before rent is due</span>
-        </div>
-        <Lines lines={ledger.upcoming.invoice.lines} />
-        <TotalRow label="Total due" cents={ledger.upcoming.invoice.totalCents} />
-        {ledger.upcoming.invoice.carryOverCents > 0 && (
+      {ledger.upcoming.afterLeaseEnd ? (
+        <section id="next-invoice" className="scroll-mt-24 rounded-2xl border border-dashed border-stone-300 bg-white p-5">
+          <h2 className="text-lg font-semibold tracking-tight">No more rent invoices</h2>
           <p className="mt-2 text-sm text-stone-600">
-            {formatUsd(ledger.upcoming.invoice.carryOverCents)} of credit carries over to the following month.
+            The lease ended on {formatDate(lease.endDate!)}, so there&apos;s no {ledger.upcoming.label} rent to bill.
           </p>
-        )}
-        {role === "landlord" && outstanding ? (
-          <p className="mt-3 text-sm text-stone-500">You can send this after the {outstanding.label} invoice is paid.</p>
-        ) : role === "landlord" ? (
-          <SendInvoiceButton leaseId={lease.id} pulse={pulses(tour, "send_invoice")} />
-        ) : (
-          <p className="mt-3 text-sm text-stone-500">{lease.landlord.name} sends this as a PayPal invoice before rent is due.</p>
-        )}
-        <AutoSendRow lease={lease} role={role} />
-      </section>
+        </section>
+      ) : (
+        <section id="next-invoice" className="scroll-mt-24 rounded-2xl border border-dashed border-stone-300 bg-white p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold tracking-tight">Next invoice · {ledger.upcoming.label}</h2>
+            <span className="text-sm text-stone-500">Preview — sent via PayPal before rent is due</span>
+          </div>
+          <Lines lines={ledger.upcoming.invoice.lines} />
+          <TotalRow label="Total due" cents={ledger.upcoming.invoice.totalCents} />
+          {ledger.upcoming.invoice.carryOverCents > 0 && (
+            <p className="mt-2 text-sm text-stone-600">
+              {formatUsd(ledger.upcoming.invoice.carryOverCents)} of credit carries over to the following month.
+            </p>
+          )}
+          {role === "landlord" && outstanding ? (
+            <p className="mt-3 text-sm text-stone-500">You can send this after the {outstanding.label} invoice is paid.</p>
+          ) : role === "landlord" ? (
+            <SendInvoiceButton leaseId={lease.id} pulse={pulses(tour, "send_invoice")} />
+          ) : (
+            <p className="mt-3 text-sm text-stone-500">{lease.landlord.name} sends this as a PayPal invoice before rent is due.</p>
+          )}
+          <AutoSendRow lease={lease} role={role} />
+        </section>
+      )}
 
       {user.demoId && (lease.autoInvoiceDays !== null || lease.autopay) && (
         <section className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">

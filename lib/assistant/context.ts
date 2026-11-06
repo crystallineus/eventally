@@ -213,7 +213,7 @@ export async function listTodos(lease: Lease, role: Role): Promise<Todo[]> {
     );
   } else if (role === "landlord") {
     const plan = planNextInvoice(lease, entries, claims);
-    todos.push({ text: `Send the ${plan.label} rent invoice (${formatUsd(plan.invoice.totalCents)}), due ${dueDate(lease, plan.period)}.`, href: "/ledger" });
+    if (!plan.afterLeaseEnd) todos.push({ text: `Send the ${plan.label} rent invoice (${formatUsd(plan.invoice.totalCents)}), due ${dueDate(lease, plan.period)}.`, href: "/ledger" });
   }
 
   for (const c of claims) {

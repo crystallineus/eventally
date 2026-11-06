@@ -2,7 +2,7 @@ import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { deleteOldDemos } from "@/lib/demo";
 import { issueNextInvoice } from "@/lib/invoicing";
-import { planNextInvoice } from "@/lib/ledger";
+import { dueDateOf, planNextInvoice } from "@/lib/ledger";
 import { formatUsd } from "@/lib/money";
 import { formatPeriod } from "@/lib/period";
 import type { User } from "@/lib/session";
@@ -22,7 +22,7 @@ export const AUTO_INVOICE_DAYS = 5;
 export const AUTOPAY_LIMIT = 1.5;
 export const SCHEDULE_VIA = "Schedule";
 
-export const dueDateOf = (lease: Pick<Lease, "dueDay">, period: string) => `${period}-${String(lease.dueDay).padStart(2, "0")}`;
+export { dueDateOf };
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
 /** Landlord turns auto-send on (AUTO_INVOICE_DAYS before the due date) or off. */
@@ -89,7 +89,7 @@ async function autoSend(lease: Lease, landlord: User, today: string, result: Sch
   ]);
   if (open.length) return; // one invoice at a time; the last one isn't paid yet
   const plan = planNextInvoice(lease, entries, claims);
-  if (lease.endDate && dueDateOf(lease, plan.period) > lease.endDate) return;
+  if (plan.afterLeaseEnd) return;
   if (daysBetween(today, dueDateOf(lease, plan.period)) > (lease.autoInvoiceDays ?? 0)) return;
   try {
     await runVia(SCHEDULE_VIA, () => issueNextInvoice(landlord, lease.id));
